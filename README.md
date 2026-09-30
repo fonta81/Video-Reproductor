@@ -1,86 +1,111 @@
+
 # Custom Video Player
 
-A lightweight, dependency-free video player built with vanilla HTML, CSS, and JavaScript. Supports a local playlist, custom controls, keyboard shortcuts, and a clean dark UI.
+A lightweight, dependency-free video player built with vanilla HTML, CSS, and JavaScript. Supports a local playlist, custom controls, keyboard shortcuts, repeat modes, and a clean dark UI.
 
 ## Features
 
-- **Custom controls** — play/pause, seek bar with buffer indicator, volume slider, mute, fullscreen, and previous/next video buttons.
-- **Playlist** — thumbnail grid generated automatically from the `VIDEOS` array; active item is highlighted.
-- **Autoplay next** — optional toggle that advances to the next video when the current one ends.
-- **Buffering spinner** — shown while the browser is fetching data.
-- **Error handling** — cards marked as "Unavailable" when a video fails to load, with a "Try again" button.
-- **Auto-hide controls** — controls fade out after 3 seconds of inactivity during playback.
-- **Keyboard shortcuts** — full keyboard support (see table below).
-- **Responsive** — adapts to small screens (≤ 520 px) with a stacked header layout.
+* **Custom controls** — Play/Pause, progress bar with buffer indicator, volume slider, mute toggle, fullscreen, and previous/next video buttons.
+
+* **Repeat modes (Loop/Repeat)** — Allows switching between:
+
+  * `Off`: Standard playback behavior.
+
+  * `Repeat Current`: Loops the active video indefinitely.
+
+  * `Repeat All`: Loops through the entire playlist and starts over from the beginning.
+
+* **Playlist** — Thumbnail grid automatically generated from the `VIDEOS` array in JavaScript.
+
+* **Autoplay next** — Optional toggle (*Autoplay next*) to automatically advance to the next video when the current one finishes.
+
+* **Loading indicator (Spinner)** — Visual feedback displayed while video content is buffering.
+
+* **Error handling** — Cards are marked as "Unavailable" if a video fails to load, along with a retry option.
+
+* **Auto-hide controls** — Controls automatically fade out after 3 seconds of inactivity during playback.
+
+* **Keyboard shortcuts** — Full accessibility via keyboard inputs.
+
+* **Responsive design** — The UI smoothly adapts to smaller screens (<= 520 px).
 
 ## Project Structure
 
 ```
 Video-Reproductor/
-├── index.html   # Player markup and playlist section
-├── js.js        # All logic: playlist, controls, keyboard, events
-└── style.css    # Dark theme, responsive layout, animations
+├── css/
+│   └── style.css   # Styles, responsive layout, dark theme, and animations
+├── js/
+│   └── js.js       # Core logic: playlist, controls, shortcuts, and events
+├── index.html      # Main HTML layout and playlist markup
+├── LICENSE         # MIT License
+└── README.md       # Project documentation
 ```
 
 ## Getting Started
 
-Because the player reads local file paths, just open `index.html` directly in a browser — no server required.
+Since the player uses local file paths, you can open `index.html` directly in any web browser.
 
-```bash
-# Clone or download the project, then open:
+```
+# Open index.html directly:
 xdg-open index.html   # Linux
 open index.html       # macOS
-# Or double-click index.html in your file manager
 ```
 
-> **Note:** Some browsers block playback of `file://` videos for security reasons. If that happens, serve the folder with a simple local server:
-> ```bash
+> **Note:** Some browsers enforce strict security policies regarding the `file://` protocol. If videos fail to load, serve the repository using a simple local server:
+>
+> ```
 > npx serve .
-> # or
+> # or using Python:
 > python3 -m http.server
 > ```
 
-## Adding / Removing Videos
+## Adding or Removing Videos
 
-Edit the `VIDEOS` array at the **top of [`js.js`](js.js)**. It is the only section you need to touch.
+Edit the `VIDEOS` array at the top of the [`js/js.js`](js/js.js) file. This is the only place you need to modify to manage your video catalog.
 
-```js
+```javascript
 const VIDEOS = [
   {
-    title: 'My Video',                    // Required — displayed in the playlist and header
-    src: '/path/to/video.mp4',            // Required — absolute or relative path / URL
-    poster: 'https://example.com/img.jpg' // Optional — thumbnail shown before playback
+    title: 'Video Title',                  // Required: Name displayed in playlist and header
+    src: '/path/to/video.mp4',            // Required: Local path or remote URL
+    poster: 'https://example.com/img.jpg' // Optional: Thumbnail image (16:9 ratio recommended)
   },
-  // Add more objects here…
+  // Add more video objects here...
 ];
 ```
 
-| Field    | Required | Description                                      |
-|----------|----------|--------------------------------------------------|
-| `title`  | ✅       | Name shown in the playlist card and "Now playing" header |
-| `src`    | ✅       | Video source — local path or remote URL          |
-| `poster` | ❌       | Thumbnail image URL (16:9 looks best)            |
+### Configuration Options (`PLAYER_SETTINGS`)
 
-## ⌨️ Keyboard Shortcuts
+You can also adjust the default repeat behavior in [`js/js.js`](js/js.js):
 
-| Key             | Action                     |
-|-----------------|----------------------------|
-| `Space` / `K`   | Play / Pause               |
-| `M`             | Toggle mute                |
-| `F`             | Toggle fullscreen          |
-| `N`             | Next video                 |
-| `P`             | Previous video             |
-| `←` Arrow Left  | Seek back 5 seconds        |
-| `→` Arrow Right | Seek forward 5 seconds     |
+```javascript
+const PLAYER_SETTINGS = {
+  loopMode: 'off',                       // Initial repeat mode: 'off' | 'one' | 'all'
+  loopModes: ['off', 'one', 'all'],      // Available repeat options to toggle
+  showLoopButton: true,                  // Show or hide the repeat button in controls
+};
+```
 
-> Shortcuts are disabled when an `<input>` is focused, so you can type freely (e.g., in the volume slider range input).
+## Keyboard Shortcuts
 
-## 🛠️ Tech Stack
+| Key | Action |
+| --- | --- |
+| `Space` / `K` | Play / Pause |
+| `M` | Toggle Mute |
+| `F` | Toggle Fullscreen |
+| `N` | Next Video |
+| `P` | Previous Video |
+| `L` | Toggle Repeat Mode (`Off` -> `Current` -> `Playlist`) |
+| `<-` (Left Arrow) | Seek backward 5 seconds |
+| `->` (Right Arrow) | Seek forward 5 seconds |
 
-| Technology | Role |
-|------------|------|
-| HTML5 `<video>` | Native video playback |
-| Vanilla JavaScript (ES6+) | All player logic |
-| CSS3 (custom properties, Grid, Flexbox) | Layout and animations |
+> *Keyboard shortcuts are automatically disabled while typing inside an input element (`<input>`).*
 
-No frameworks, no build step, no dependencies.
+## Tech Stack
+
+* **HTML5**: Media playback and semantic document structure.
+
+* **CSS3**: Layout design using Flexbox and Grid, animations, and CSS variables.
+
+* **JavaScript (ES6+)**: DOM manipulation, media event handling, and custom logic without external dependencies.
