@@ -88,6 +88,24 @@
           </div>
 
           <div class="controls-right">
+            <!-- Repeat / loop (cycles: off → one → all) -->
+            <button class="control-btn loop-btn" id="loopBtn" title="Repeat: off (L)" aria-pressed="false" aria-label="Toggle repeat mode">
+              <!-- Repeat (used for "off" and "all") -->
+              <svg id="loopIcon" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="m17 2 4 4-4 4"></path>
+                <path d="M3 11v-1a4 4 0 0 1 4-4h14"></path>
+                <path d="m7 22-4-4 4-4"></path>
+                <path d="M21 13v1a4 4 0 0 1-4 4H3"></path>
+              </svg>
+              <!-- Repeat one (with the "1") -->
+              <svg id="loopOneIcon" class="hidden" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="m17 2 4 4-4 4"></path>
+                <path d="M3 11v-1a4 4 0 0 1 4-4h14"></path>
+                <path d="m7 22-4-4 4-4"></path>
+                <path d="M21 13v1a4 4 0 0 1-4 4H3"></path>
+                <path d="M11 10h1v4"></path>
+              </svg>
+            </button>
             <button class="control-btn" id="fullscreenBtn" title="Fullscreen (F)">
               <svg id="fullscreenExpandIcon" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2">
                 <path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"></path>

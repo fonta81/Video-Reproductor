@@ -242,6 +242,15 @@ video {
 .control-btn:active {
   transform: scale(0.95);
 }
+/* Repeat button: highlighted when a repeat mode is active */
+.control-btn.loop-btn.active {
+  color: #3b82f6;
+  background-color: rgba(59, 130, 246, 0.18);
+}
+
+.control-btn.loop-btn.active:hover {
+  background-color: rgba(59, 130, 246, 0.3);
+}
 
 /* Volume slider expands on hover */
 .volume-container {
