@@ -1,8 +1,46 @@
+/* =====================================================================
+   VIDEO LIST  -  the only part you need to edit to add/remove videos
+   ---------------------------------------------------------------------
+   To ADD a video:    copy one object below and change its values.
+   To REMOVE a video: delete its object.
+   Fields: title (required), src (required), poster (optional thumbnail)
+   ===================================================================== */
+const VIDEOS = [
+  {
+    title: 'Ena',
+    src: '/home/mteo/Vídeos/Pruebas/ENA.mp4',
+    poster: 'https://i.redd.it/what-do-you-call-dream-bbq-ena-v0-6n804b0rr5xe1.gif?width=600&auto=webp&s=9b59d1125c04f6c2b82ce20a01cd9fcfa0dad12b'
+  },
+  {
+    title: 'Elephants Dream',
+    src: 'https://storage.googleapis.com/gtv-videos-bucket/sample/ElephantsDream.mp4',
+    poster: 'https://storage.googleapis.com/gtv-videos-bucket/sample/images/ElephantsDream.jpg'
+  },
+  {
+    title: 'For Bigger Blazes',
+    src: 'https://storage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4',
+    poster: 'https://storage.googleapis.com/gtv-videos-bucket/sample/images/ForBiggerBlazes.jpg'
+  },
+  {
+    title: 'Sintel',
+    src: 'https://storage.googleapis.com/gtv-videos-bucket/sample/Sintel.mp4',
+    poster: 'https://storage.googleapis.com/gtv-videos-bucket/sample/images/Sintel.jpg'
+  },
+  {
+    title: 'Tears of Steel',
+    src: 'https://storage.googleapis.com/gtv-videos-bucket/sample/TearsOfSteel.mp4',
+    poster: 'https://storage.googleapis.com/gtv-videos-bucket/sample/images/TearsOfSteel.jpg'
+  }
+];
+
 document.addEventListener('DOMContentLoaded', () => {
+  // ---------- Element references ----------
   const videoContainer = document.getElementById('videoContainer');
   const mainVideo = document.getElementById('mainVideo');
   const playPauseBtn = document.getElementById('playPauseBtn');
   const bigPlayBtn = document.getElementById('bigPlayBtn');
+  const prevBtn = document.getElementById('prevBtn');
+  const nextBtn = document.getElementById('nextBtn');
   const playIcon = document.getElementById('playIcon');
   const pauseIcon = document.getElementById('pauseIcon');
   const progressContainer = document.getElementById('progressContainer');
@@ -21,16 +59,13 @@ document.addEventListener('DOMContentLoaded', () => {
   const spinner = document.getElementById('spinner');
   const errorMessage = document.getElementById('errorMessage');
   const retryBtn = document.getElementById('retryBtn');
+  const videoTitleEl = document.getElementById('videoTitle');
+  const playlistEl = document.getElementById('playlist');
+  const autoplayNext = document.getElementById('autoplayNext');
 
-  // Sample videos: if one fails to load, the player tries the next one
-  const sampleVideos = [
-    'https://storage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4',
-    'https://storage.googleapis.com/gtv-videos-bucket/sample/ElephantsDream.mp4',
-    'https://www.w3schools.com/html/mov_bbb.mp4'
-  ];
-  let currentSourceIndex = 0;
-
+  let currentIndex = 0;
   let hideControlsTimeout;
+  const playlistButtons = [];
 
   // Convert seconds to mm:ss
   function formatTime(seconds) {
@@ -40,37 +75,141 @@ document.addEventListener('DOMContentLoaded', () => {
     return `${mins < 10 ? '0' : ''}${mins}:${secs < 10 ? '0' : ''}${secs}`;
   }
 
-  // ---------- Loading a sample video ----------
-  function loadSource(index) {
-    currentSourceIndex = index;
-    errorMessage.classList.add('hidden');
-    spinner.classList.remove('hidden');
-    mainVideo.src = sampleVideos[index];
-    mainVideo.load();
+  // =====================================================================
+  //  VIDEO SWITCHER MODULE
+  // =====================================================================
+
+  // Build the playlist cards from the VIDEOS array
+  function renderPlaylist() {
+    playlistEl.innerHTML = '';
+    playlistButtons.length = 0;
+
+    VIDEOS.forEach((video, index) => {
+      const li = document.createElement('li');
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'playlist-item';
+      btn.setAttribute('aria-label', `Play ${video.title}`);
+
+      const thumb = document.createElement('img');
+      thumb.className = 'playlist-thumb';
+      thumb.alt = '';
+      thumb.loading = 'lazy';
+      if (video.poster) thumb.src = video.poster;
+
+      const info = document.createElement('div');
+      info.className = 'playlist-info';
+
+      const title = document.createElement('span');
+      title.className = 'playlist-title';
+      title.textContent = video.title;
+
+      const status = document.createElement('span');
+      status.className = 'playlist-status';
+
+      info.append(title, status);
+      btn.append(thumb, info);
+      li.appendChild(btn);
+      playlistEl.appendChild(li);
+
+      btn.addEventListener('click', () => loadVideo(index, true));
+      playlistButtons.push(btn);
+    });
   }
 
+  // Highlight the active card and update the title
+  function updatePlaylistUI() {
+    playlistButtons.forEach((btn, index) => {
+      const isActive = index === currentIndex;
+      btn.classList.toggle('active', isActive);
+      const status = btn.querySelector('.playlist-status');
+      if (btn.classList.contains('unavailable')) {
+        status.textContent = 'Unavailable';
+      } else {
+        status.textContent = isActive ? 'Now playing' : '';
+      }
+    });
+    videoTitleEl.textContent = VIDEOS[currentIndex].title;
+  }
+
+  // Load a video by its index. If autoplay is true, start playing right away.
+  function loadVideo(index, autoplay = false) {
+    if (VIDEOS.length === 0) return;
+
+    // Wrap around at both ends of the list
+    currentIndex = (index + VIDEOS.length) % VIDEOS.length;
+    const video = VIDEOS[currentIndex];
+
+    // Reset the UI
+    errorMessage.classList.add('hidden');
+    spinner.classList.remove('hidden');
+    progressBar.style.width = '0%';
+    bufferBar.style.width = '0%';
+    currentTimeEl.textContent = '00:00';
+    durationEl.textContent = '00:00';
+    bigPlayBtn.classList.remove('hidden');
+
+    // Swap the source
+    mainVideo.poster = video.poster || '';
+    mainVideo.src = video.src;
+    mainVideo.load();
+
+    // Clear any previous error mark on this card (allows retrying)
+    playlistButtons[currentIndex].classList.remove('unavailable');
+    updatePlaylistUI();
+
+    if (autoplay) {
+      const playPromise = mainVideo.play();
+      if (playPromise !== undefined) {
+        playPromise.catch(err => console.warn('Playback was prevented:', err));
+      }
+    }
+  }
+
+  function playNext() { loadVideo(currentIndex + 1, true); }
+  function playPrevious() { loadVideo(currentIndex - 1, true); }
+
+  prevBtn.addEventListener('click', playPrevious);
+  nextBtn.addEventListener('click', playNext);
+
+  // Hide the prev/next buttons if there is only one video
+  function updateNavVisibility() {
+    const hasMultiple = VIDEOS.length > 1;
+    prevBtn.classList.toggle('hidden', !hasMultiple);
+    nextBtn.classList.toggle('hidden', !hasMultiple);
+    autoplayNext.closest('label').classList.toggle('hidden', !hasMultiple);
+  }
+
+  // When a video fails to load: mark its card and show the error
   mainVideo.addEventListener('error', () => {
-    if (currentSourceIndex < sampleVideos.length - 1) {
-      // Try the next sample video
-      loadSource(currentSourceIndex + 1);
+    playlistButtons[currentIndex].classList.add('unavailable');
+    updatePlaylistUI();
+    spinner.classList.add('hidden');
+    bigPlayBtn.classList.add('hidden');
+    errorMessage.classList.remove('hidden');
+  });
+
+  retryBtn.addEventListener('click', () => loadVideo(currentIndex, false));
+
+  // When a video ends: go to the next one if "Autoplay next" is on
+  mainVideo.addEventListener('ended', () => {
+    const isLast = currentIndex === VIDEOS.length - 1;
+    if (autoplayNext.checked && !isLast) {
+      playNext();
     } else {
-      // All sources failed
-      spinner.classList.add('hidden');
-      bigPlayBtn.classList.add('hidden');
-      errorMessage.classList.remove('hidden');
+      bigPlayBtn.classList.remove('hidden');
+      videoContainer.classList.remove('user-inactive');
     }
   });
 
-  retryBtn.addEventListener('click', () => {
-    bigPlayBtn.classList.remove('hidden');
-    loadSource(0);
-  });
+  // =====================================================================
+  //  PLAYER CONTROLS
+  // =====================================================================
 
   // ---------- Play / Pause ----------
   function togglePlay() {
     if (mainVideo.paused || mainVideo.ended) {
       const playPromise = mainVideo.play();
-      // play() returns a promise; catch it so blocked playback doesn't throw errors
       if (playPromise !== undefined) {
         playPromise.catch(err => console.warn('Playback was prevented:', err));
       }
@@ -88,14 +227,9 @@ document.addEventListener('DOMContentLoaded', () => {
   mainVideo.addEventListener('pause', () => {
     playIcon.classList.remove('hidden');
     pauseIcon.classList.add('hidden');
-    if (!mainVideo.ended) {
+    if (!mainVideo.ended && errorMessage.classList.contains('hidden')) {
       bigPlayBtn.classList.remove('hidden');
     }
-    videoContainer.classList.remove('user-inactive');
-  });
-
-  mainVideo.addEventListener('ended', () => {
-    bigPlayBtn.classList.remove('hidden');
     videoContainer.classList.remove('user-inactive');
   });
 
@@ -205,10 +339,16 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // ---------- Keyboard shortcuts ----------
   document.addEventListener('keydown', (e) => {
-    if (document.activeElement.tagName === 'INPUT') return;
+    const tag = document.activeElement.tagName;
+    if (tag === 'INPUT') return;
 
     switch (e.key.toLowerCase()) {
       case ' ':
+        // Let a focused button (e.g. a playlist card) handle Space itself
+        if (tag === 'BUTTON') return;
+        e.preventDefault();
+        togglePlay();
+        break;
       case 'k':
         e.preventDefault();
         togglePlay();
@@ -218,6 +358,12 @@ document.addEventListener('DOMContentLoaded', () => {
         break;
       case 'f':
         fullscreenBtn.click();
+        break;
+      case 'n':
+        playNext();
+        break;
+      case 'p':
+        playPrevious();
         break;
       case 'arrowleft':
         e.preventDefault();
@@ -230,6 +376,10 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
-  // Start loading the first sample video
-  loadSource(0);
+  // =====================================================================
+  //  START
+  // =====================================================================
+  renderPlaylist();
+  updateNavVisibility();
+  loadVideo(0, false);
 });
