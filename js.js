@@ -18,6 +18,26 @@ const VIDEOS = [
   },
 ];
 
+/* =====================================================================
+   PLAYER SETTINGS  -  easy configuration
+   ---------------------------------------------------------------------
+   loopMode      Starting repeat mode: 'off' | 'one' | 'all'
+                   off = no repeat (default behavior)
+                   one = replay the current video forever
+                   all = when a video ends, go to the next one and wrap
+                         back to the first after the last
+   loopModes     Modes the button/L key cycles through, in order.
+                 Remove entries to disable them, e.g. ['off', 'one']
+                 gives a simple on/off toggle for repeating one video.
+   showLoopButton  false hides the button (the setting still applies,
+                   and the L key still works)
+   ===================================================================== */
+const PLAYER_SETTINGS = {
+  loopMode: 'off',
+  loopModes: ['off', 'one', 'all'],
+  showLoopButton: true,
+};
+
 document.addEventListener('DOMContentLoaded', () => {
   // ---------- Element references ----------
   const videoContainer = document.getElementById('videoContainer');
@@ -47,10 +67,16 @@ document.addEventListener('DOMContentLoaded', () => {
   const videoTitleEl = document.getElementById('videoTitle');
   const playlistEl = document.getElementById('playlist');
   const autoplayNext = document.getElementById('autoplayNext');
+  const loopBtn = document.getElementById('loopBtn');
+  const loopIcon = document.getElementById('loopIcon');
+  const loopOneIcon = document.getElementById('loopOneIcon');
 
   let currentIndex = 0;
   let hideControlsTimeout;
   const playlistButtons = [];
+  let loopMode = PLAYER_SETTINGS.loopModes.includes(PLAYER_SETTINGS.loopMode)
+    ? PLAYER_SETTINGS.loopMode
+    : PLAYER_SETTINGS.loopModes[0];
 
   // Convert seconds to mm:ss
   function formatTime(seconds) {
@@ -59,6 +85,38 @@ document.addEventListener('DOMContentLoaded', () => {
     const secs = Math.floor(seconds % 60);
     return `${mins < 10 ? '0' : ''}${mins}:${secs < 10 ? '0' : ''}${secs}`;
   }
+
+  // =====================================================================
+  //  LOOP / REPEAT MODULE
+  // =====================================================================
+
+  const LOOP_LABELS = {
+    off: 'Repeat: off (L)',
+    one: 'Repeat: current video (L)',
+    all: 'Repeat: entire playlist (L)',
+  };
+
+  function setLoopMode(mode) {
+    loopMode = mode;
+
+    // Native looping handles "one"; "all" is handled in the 'ended' event
+    mainVideo.loop = mode === 'one';
+
+    loopIcon.classList.toggle('hidden', mode === 'one');
+    loopOneIcon.classList.toggle('hidden', mode !== 'one');
+    loopBtn.classList.toggle('active', mode !== 'off');
+    loopBtn.setAttribute('aria-pressed', String(mode !== 'off'));
+    loopBtn.title = LOOP_LABELS[mode];
+  }
+
+  function cycleLoopMode() {
+    const modes = PLAYER_SETTINGS.loopModes;
+    const next = modes[(modes.indexOf(loopMode) + 1) % modes.length];
+    setLoopMode(next);
+  }
+
+  loopBtn.addEventListener('click', cycleLoopMode);
+  loopBtn.classList.toggle('hidden', !PLAYER_SETTINGS.showLoopButton);
 
   // =====================================================================
   //  VIDEO SWITCHER MODULE
@@ -176,8 +234,20 @@ document.addEventListener('DOMContentLoaded', () => {
 
   retryBtn.addEventListener('click', () => loadVideo(currentIndex, false));
 
-  // When a video ends: go to the next one if "Autoplay next" is on
+  // When a video ends: repeat / advance depending on the loop mode
   mainVideo.addEventListener('ended', () => {
+    // Repeat all: always continue, wrapping back to the first video
+    if (loopMode === 'all') {
+      if (VIDEOS.length === 1) {
+        mainVideo.currentTime = 0;
+        mainVideo.play().catch(err => console.warn('Playback was prevented:', err));
+      } else {
+        playNext(); // loadVideo() already wraps around
+      }
+      return;
+    }
+
+    // Off: original behavior. ("one" never reaches here; mainVideo.loop handles it.)
     const isLast = currentIndex === VIDEOS.length - 1;
     if (autoplayNext.checked && !isLast) {
       playNext();
@@ -350,6 +420,9 @@ document.addEventListener('DOMContentLoaded', () => {
       case 'p':
         playPrevious();
         break;
+      case 'l':
+        cycleLoopMode();
+        break;
       case 'arrowleft':
         e.preventDefault();
         mainVideo.currentTime = Math.max(0, mainVideo.currentTime - 5);
@@ -366,5 +439,6 @@ document.addEventListener('DOMContentLoaded', () => {
   // =====================================================================
   renderPlaylist();
   updateNavVisibility();
+  setLoopMode(loopMode);
   loadVideo(0, false);
 });
