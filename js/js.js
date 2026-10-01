@@ -1,8 +1,5 @@
 /* =====================================================================
    VIDEO LIST  -  the only part you need to edit to add/remove videos
-   ---------------------------------------------------------------------
-   To ADD a video:    copy one object below and change its values.
-   To REMOVE a video: delete its object.
    Fields: title (required), src (required), poster (optional thumbnail)
    ===================================================================== */
 const VIDEOS = [
@@ -19,18 +16,10 @@ const VIDEOS = [
 ];
 
 /* =====================================================================
-   PLAYER SETTINGS  -  easy configuration
-   ---------------------------------------------------------------------
-   loopMode      Starting repeat mode: 'off' | 'one' | 'all'
-                   off = no repeat (default behavior)
-                   one = replay the current video forever
-                   all = when a video ends, go to the next one and wrap
-                         back to the first after the last
-   loopModes     Modes the button/L key cycles through, in order.
-                 Remove entries to disable them, e.g. ['off', 'one']
-                 gives a simple on/off toggle for repeating one video.
-   showLoopButton  false hides the button (the setting still applies,
-                   and the L key still works)
+   PLAYER SETTINGS
+   loopMode        Starting repeat mode: 'off' | 'one' | 'all'
+   loopModes       Modes the button / L key cycles through, in order
+   showLoopButton  false hides the button (the L key still works)
    ===================================================================== */
 const PLAYER_SETTINGS = {
   loopMode: 'off',
@@ -38,58 +27,114 @@ const PLAYER_SETTINGS = {
   showLoopButton: true,
 };
 
+/* =====================================================================
+   SHARED HELPERS
+   ===================================================================== */
+const SEEK_STEP = 5;          // seconds for arrow-key seeking
+const CONTROLS_HIDE_MS = 3000;
+
+const pad = (n) => String(n).padStart(2, '0');
+const clamp = (n, min, max) => Math.min(Math.max(n, min), max);
+const formatTime = (s) => Number.isFinite(s) ? `${pad(Math.floor(s / 60))}:${pad(Math.floor(s % 60))}` : '00:00';
+
+const setHidden = (node, hidden) => node.classList.toggle('hidden', hidden);
+const setIcon = (svg, name) => svg.firstElementChild.setAttribute('href', `#i-${name}`);
+const safePlay = (v) => Promise.resolve(v.play()).catch((err) => console.warn('Playback was prevented:', err));
+const h = (tag, className, props) => Object.assign(document.createElement(tag), { className }, props);
+
+/* =====================================================================
+   PLAYLIST MODULE  -  builds the cards and reflects their state
+   ===================================================================== */
+function createPlaylist(listEl, videos, onSelect) {
+  const items = videos.map((video, index) => {
+    const btn = h('button', 'playlist-item', { type: 'button' });
+    btn.setAttribute('aria-label', `Play ${video.title}`);
+
+    const thumb = h('img', 'playlist-thumb', { alt: '', loading: 'lazy' });
+    if (video.poster) thumb.src = video.poster;
+
+    const status = h('span', 'playlist-status');
+    const info = h('div', 'playlist-info');
+    info.append(h('span', 'playlist-title', { textContent: video.title }), status);
+
+    btn.append(thumb, info);
+    btn.addEventListener('click', () => onSelect(index));
+
+    const li = document.createElement('li');
+    li.append(btn);
+    listEl.append(li);
+    return { btn, status };
+  });
+
+  return {
+    update(activeIndex) {
+      items.forEach(({ btn, status }, i) => {
+        const active = i === activeIndex;
+        btn.classList.toggle('active', active);
+        status.textContent = btn.classList.contains('unavailable') ? 'Unavailable' : active ? 'Now playing' : '';
+      });
+    },
+    setUnavailable(index, unavailable) {
+      items[index].btn.classList.toggle('unavailable', unavailable);
+    },
+  };
+}
+
+/* =====================================================================
+   PLAYER
+   ===================================================================== */
 document.addEventListener('DOMContentLoaded', () => {
-  // ---------- Element references ----------
-  const videoContainer = document.getElementById('videoContainer');
-  const mainVideo = document.getElementById('mainVideo');
-  const playPauseBtn = document.getElementById('playPauseBtn');
-  const bigPlayBtn = document.getElementById('bigPlayBtn');
-  const prevBtn = document.getElementById('prevBtn');
-  const nextBtn = document.getElementById('nextBtn');
-  const playIcon = document.getElementById('playIcon');
-  const pauseIcon = document.getElementById('pauseIcon');
-  const progressContainer = document.getElementById('progressContainer');
-  const progressBar = document.getElementById('progressBar');
-  const bufferBar = document.getElementById('bufferBar');
-  const currentTimeEl = document.getElementById('currentTime');
-  const durationEl = document.getElementById('duration');
-  const muteBtn = document.getElementById('muteBtn');
-  const volumeHighIcon = document.getElementById('volumeHighIcon');
-  const volumeMuteIcon = document.getElementById('volumeMuteIcon');
-  const volumeSlider = document.getElementById('volumeSlider');
-  const fullscreenBtn = document.getElementById('fullscreenBtn');
-  const fullscreenExpandIcon = document.getElementById('fullscreenExpandIcon');
-  const fullscreenCompressIcon = document.getElementById('fullscreenCompressIcon');
-  const videoOverlay = document.getElementById('videoOverlay');
-  const spinner = document.getElementById('spinner');
-  const errorMessage = document.getElementById('errorMessage');
-  const retryBtn = document.getElementById('retryBtn');
-  const videoTitleEl = document.getElementById('videoTitle');
-  const playlistEl = document.getElementById('playlist');
-  const autoplayNext = document.getElementById('autoplayNext');
-  const loopBtn = document.getElementById('loopBtn');
-  const loopIcon = document.getElementById('loopIcon');
-  const loopOneIcon = document.getElementById('loopOneIcon');
+  const IDS = [
+    'videoContainer', 'mainVideo', 'videoOverlay', 'bigPlayBtn', 'spinner', 'errorMessage', 'retryBtn',
+    'progressContainer', 'progressBar', 'bufferBar', 'currentTime', 'duration',
+    'prevBtn', 'nextBtn', 'playPauseBtn', 'playIcon', 'muteBtn', 'volumeIcon', 'volumeSlider',
+    'loopBtn', 'loopIcon', 'fullscreenBtn', 'fullscreenIcon',
+    'videoTitle', 'playlist', 'autoplayNext',
+  ];
+  const el = Object.fromEntries(IDS.map((id) => [id, document.getElementById(id)]));
+  const video = el.mainVideo;
 
-  let currentIndex = 0;
-  let hideControlsTimeout;
-  const playlistButtons = [];
-  let loopMode = PLAYER_SETTINGS.loopModes.includes(PLAYER_SETTINGS.loopMode)
-    ? PLAYER_SETTINGS.loopMode
-    : PLAYER_SETTINGS.loopModes[0];
+  const { loopModes } = PLAYER_SETTINGS;
+  const state = {
+    index: 0,
+    hideTimer: null,
+    loopMode: loopModes.includes(PLAYER_SETTINGS.loopMode) ? PLAYER_SETTINGS.loopMode : loopModes[0],
+  };
 
-  // Convert seconds to mm:ss
-  function formatTime(seconds) {
-    if (isNaN(seconds) || !isFinite(seconds)) return '00:00';
-    const mins = Math.floor(seconds / 60);
-    const secs = Math.floor(seconds % 60);
-    return `${mins < 10 ? '0' : ''}${mins}:${secs < 10 ? '0' : ''}${secs}`;
+  const playlist = createPlaylist(el.playlist, VIDEOS, (i) => loadVideo(i, true));
+
+  // ---------- Switcher ----------
+  function refreshPlaylist() {
+    playlist.update(state.index);
+    el.videoTitle.textContent = VIDEOS[state.index]?.title ?? '';
   }
 
-  // =====================================================================
-  //  LOOP / REPEAT MODULE
-  // =====================================================================
+  function loadVideo(index, autoplay = false) {
+    if (!VIDEOS.length) return;
 
+    state.index = (index + VIDEOS.length) % VIDEOS.length; // wraps at both ends
+    const { src, poster = '' } = VIDEOS[state.index];
+
+    // Reset the UI
+    setHidden(el.errorMessage, true);
+    setHidden(el.spinner, false);
+    setHidden(el.bigPlayBtn, false);
+    el.progressBar.style.width = el.bufferBar.style.width = '0%';
+    el.currentTime.textContent = el.duration.textContent = '00:00';
+
+    video.poster = poster;
+    video.src = src;
+    video.load();
+
+    playlist.setUnavailable(state.index, false); // allows retrying
+    refreshPlaylist();
+    if (autoplay) safePlay(video);
+  }
+
+  const playNext = () => loadVideo(state.index + 1, true);
+  const playPrevious = () => loadVideo(state.index - 1, true);
+
+  // ---------- Repeat modes ----------
   const LOOP_LABELS = {
     off: 'Repeat: off (L)',
     one: 'Repeat: current video (L)',
@@ -97,348 +142,164 @@ document.addEventListener('DOMContentLoaded', () => {
   };
 
   function setLoopMode(mode) {
-    loopMode = mode;
-
-    // Native looping handles "one"; "all" is handled in the 'ended' event
-    mainVideo.loop = mode === 'one';
-
-    loopIcon.classList.toggle('hidden', mode === 'one');
-    loopOneIcon.classList.toggle('hidden', mode !== 'one');
-    loopBtn.classList.toggle('active', mode !== 'off');
-    loopBtn.setAttribute('aria-pressed', String(mode !== 'off'));
-    loopBtn.title = LOOP_LABELS[mode];
+    state.loopMode = mode;
+    // Native looping covers "one" and a single-video "all"; multi-video "all" is handled on 'ended'
+    video.loop = mode === 'one' || (mode === 'all' && VIDEOS.length === 1);
+    setIcon(el.loopIcon, mode === 'one' ? 'repeat-one' : 'repeat');
+    el.loopBtn.classList.toggle('active', mode !== 'off');
+    el.loopBtn.setAttribute('aria-pressed', String(mode !== 'off'));
+    el.loopBtn.title = LOOP_LABELS[mode];
   }
 
   function cycleLoopMode() {
-    const modes = PLAYER_SETTINGS.loopModes;
-    const next = modes[(modes.indexOf(loopMode) + 1) % modes.length];
-    setLoopMode(next);
+    setLoopMode(loopModes[(loopModes.indexOf(state.loopMode) + 1) % loopModes.length]);
   }
 
-  loopBtn.addEventListener('click', cycleLoopMode);
-  loopBtn.classList.toggle('hidden', !PLAYER_SETTINGS.showLoopButton);
-
-  // =====================================================================
-  //  VIDEO SWITCHER MODULE
-  // =====================================================================
-
-  // Build the playlist cards from the VIDEOS array
-  function renderPlaylist() {
-    playlistEl.innerHTML = '';
-    playlistButtons.length = 0;
-
-    VIDEOS.forEach((video, index) => {
-      const li = document.createElement('li');
-      const btn = document.createElement('button');
-      btn.type = 'button';
-      btn.className = 'playlist-item';
-      btn.setAttribute('aria-label', `Play ${video.title}`);
-
-      const thumb = document.createElement('img');
-      thumb.className = 'playlist-thumb';
-      thumb.alt = '';
-      thumb.loading = 'lazy';
-      if (video.poster) thumb.src = video.poster;
-
-      const info = document.createElement('div');
-      info.className = 'playlist-info';
-
-      const title = document.createElement('span');
-      title.className = 'playlist-title';
-      title.textContent = video.title;
-
-      const status = document.createElement('span');
-      status.className = 'playlist-status';
-
-      info.append(title, status);
-      btn.append(thumb, info);
-      li.appendChild(btn);
-      playlistEl.appendChild(li);
-
-      btn.addEventListener('click', () => loadVideo(index, true));
-      playlistButtons.push(btn);
-    });
-  }
-
-  // Highlight the active card and update the title
-  function updatePlaylistUI() {
-    playlistButtons.forEach((btn, index) => {
-      const isActive = index === currentIndex;
-      btn.classList.toggle('active', isActive);
-      const status = btn.querySelector('.playlist-status');
-      if (btn.classList.contains('unavailable')) {
-        status.textContent = 'Unavailable';
-      } else {
-        status.textContent = isActive ? 'Now playing' : '';
-      }
-    });
-    videoTitleEl.textContent = VIDEOS[currentIndex].title;
-  }
-
-  // Load a video by its index. If autoplay is true, start playing right away.
-  function loadVideo(index, autoplay = false) {
-    if (VIDEOS.length === 0) return;
-
-    // Wrap around at both ends of the list
-    currentIndex = (index + VIDEOS.length) % VIDEOS.length;
-    const video = VIDEOS[currentIndex];
-
-    // Reset the UI
-    errorMessage.classList.add('hidden');
-    spinner.classList.remove('hidden');
-    progressBar.style.width = '0%';
-    bufferBar.style.width = '0%';
-    currentTimeEl.textContent = '00:00';
-    durationEl.textContent = '00:00';
-    bigPlayBtn.classList.remove('hidden');
-
-    // Swap the source
-    mainVideo.poster = video.poster || '';
-    mainVideo.src = video.src;
-    mainVideo.load();
-
-    // Clear any previous error mark on this card (allows retrying)
-    playlistButtons[currentIndex].classList.remove('unavailable');
-    updatePlaylistUI();
-
-    if (autoplay) {
-      const playPromise = mainVideo.play();
-      if (playPromise !== undefined) {
-        playPromise.catch(err => console.warn('Playback was prevented:', err));
-      }
-    }
-  }
-
-  function playNext() { loadVideo(currentIndex + 1, true); }
-  function playPrevious() { loadVideo(currentIndex - 1, true); }
-
-  prevBtn.addEventListener('click', playPrevious);
-  nextBtn.addEventListener('click', playNext);
-
-  // Hide the prev/next buttons if there is only one video
-  function updateNavVisibility() {
-    const hasMultiple = VIDEOS.length > 1;
-    prevBtn.classList.toggle('hidden', !hasMultiple);
-    nextBtn.classList.toggle('hidden', !hasMultiple);
-    autoplayNext.closest('label').classList.toggle('hidden', !hasMultiple);
-  }
-
-  // When a video fails to load: mark its card and show the error
-  mainVideo.addEventListener('error', () => {
-    playlistButtons[currentIndex].classList.add('unavailable');
-    updatePlaylistUI();
-    spinner.classList.add('hidden');
-    bigPlayBtn.classList.add('hidden');
-    errorMessage.classList.remove('hidden');
-  });
-
-  retryBtn.addEventListener('click', () => loadVideo(currentIndex, false));
-
-  // When a video ends: repeat / advance depending on the loop mode
-  mainVideo.addEventListener('ended', () => {
-    // Repeat all: always continue, wrapping back to the first video
-    if (loopMode === 'all') {
-      if (VIDEOS.length === 1) {
-        mainVideo.currentTime = 0;
-        mainVideo.play().catch(err => console.warn('Playback was prevented:', err));
-      } else {
-        playNext(); // loadVideo() already wraps around
-      }
-      return;
-    }
-
-    // Off: original behavior. ("one" never reaches here; mainVideo.loop handles it.)
-    const isLast = currentIndex === VIDEOS.length - 1;
-    if (autoplayNext.checked && !isLast) {
-      playNext();
-    } else {
-      bigPlayBtn.classList.remove('hidden');
-      videoContainer.classList.remove('user-inactive');
-    }
-  });
-
-  // =====================================================================
-  //  PLAYER CONTROLS
-  // =====================================================================
-
-  // ---------- Play / Pause ----------
+  // ---------- Play / pause ----------
   function togglePlay() {
-    if (mainVideo.paused || mainVideo.ended) {
-      const playPromise = mainVideo.play();
-      if (playPromise !== undefined) {
-        playPromise.catch(err => console.warn('Playback was prevented:', err));
-      }
-    } else {
-      mainVideo.pause();
-    }
+    if (video.paused || video.ended) safePlay(video);
+    else video.pause();
   }
 
-  mainVideo.addEventListener('play', () => {
-    playIcon.classList.add('hidden');
-    pauseIcon.classList.remove('hidden');
-    bigPlayBtn.classList.add('hidden');
-  });
-
-  mainVideo.addEventListener('pause', () => {
-    playIcon.classList.remove('hidden');
-    pauseIcon.classList.add('hidden');
-    if (!mainVideo.ended && errorMessage.classList.contains('hidden')) {
-      bigPlayBtn.classList.remove('hidden');
-    }
-    videoContainer.classList.remove('user-inactive');
-  });
-
-  playPauseBtn.addEventListener('click', togglePlay);
-  videoOverlay.addEventListener('click', togglePlay);
-  bigPlayBtn.addEventListener('click', togglePlay);
-
-  // ---------- Buffering spinner ----------
-  mainVideo.addEventListener('waiting', () => spinner.classList.remove('hidden'));
-  mainVideo.addEventListener('canplay', () => spinner.classList.add('hidden'));
-  mainVideo.addEventListener('playing', () => spinner.classList.add('hidden'));
-
-  // ---------- Progress, buffer and time ----------
-  mainVideo.addEventListener('timeupdate', () => {
-    if (mainVideo.duration) {
-      const percentage = (mainVideo.currentTime / mainVideo.duration) * 100;
-      progressBar.style.width = `${percentage}%`;
-      currentTimeEl.textContent = formatTime(mainVideo.currentTime);
-    }
-  });
-
-  mainVideo.addEventListener('progress', () => {
-    if (mainVideo.duration && mainVideo.buffered.length > 0) {
-      const bufferedEnd = mainVideo.buffered.end(mainVideo.buffered.length - 1);
-      bufferBar.style.width = `${(bufferedEnd / mainVideo.duration) * 100}%`;
-    }
-  });
-
-  mainVideo.addEventListener('loadedmetadata', () => {
-    durationEl.textContent = formatTime(mainVideo.duration);
-    spinner.classList.add('hidden');
-  });
-
-  // Seek by clicking the progress bar
-  progressContainer.addEventListener('click', (e) => {
-    if (!mainVideo.duration) return;
-    const rect = progressContainer.getBoundingClientRect();
-    const clickPos = Math.min(Math.max((e.clientX - rect.left) / rect.width, 0), 1);
-    mainVideo.currentTime = clickPos * mainVideo.duration;
-  });
-
-  // ---------- Volume and mute ----------
-  function updateVolumeIcon() {
-    if (mainVideo.muted || mainVideo.volume === 0) {
-      volumeHighIcon.classList.add('hidden');
-      volumeMuteIcon.classList.remove('hidden');
-    } else {
-      volumeHighIcon.classList.remove('hidden');
-      volumeMuteIcon.classList.add('hidden');
-    }
+  // ---------- Volume ----------
+  function syncVolumeUI() {
+    const silent = video.muted || video.volume === 0;
+    setIcon(el.volumeIcon, silent ? 'mute' : 'volume');
+    el.volumeSlider.value = silent ? 0 : video.volume;
   }
 
-  volumeSlider.addEventListener('input', (e) => {
-    const val = parseFloat(e.target.value);
-    mainVideo.volume = val;
-    mainVideo.muted = val === 0;
-    updateVolumeIcon();
+  function toggleMute() {
+    video.muted = !video.muted;
+    if (!video.muted && video.volume === 0) video.volume = 1;
+  }
+
+  // ---------- Seeking ----------
+  const seekBy = (delta) => { video.currentTime = clamp(video.currentTime + delta, 0, video.duration || 0); };
+
+  // ---------- Auto-hide controls ----------
+  const setInactive = (inactive) => el.videoContainer.classList.toggle('user-inactive', inactive);
+  const hideIfPlaying = () => { if (!video.paused) setInactive(true); };
+
+  function showControls() {
+    setInactive(false);
+    clearTimeout(state.hideTimer);
+    state.hideTimer = setTimeout(hideIfPlaying, CONTROLS_HIDE_MS);
+  }
+
+  // ---------- Event wiring ----------
+  const onVideo = (events, handler) => events.split(' ').forEach((e) => video.addEventListener(e, handler));
+
+  [
+    [el.playPauseBtn, togglePlay],
+    [el.videoOverlay, togglePlay],
+    [el.bigPlayBtn, togglePlay],
+    [el.prevBtn, playPrevious],
+    [el.nextBtn, playNext],
+    [el.retryBtn, () => loadVideo(state.index, false)],
+    [el.loopBtn, cycleLoopMode],
+    [el.muteBtn, toggleMute],
+    [el.fullscreenBtn, () => document.fullscreenElement
+      ? document.exitFullscreen()
+      : el.videoContainer.requestFullscreen().catch(console.error)],
+  ].forEach(([node, handler]) => node.addEventListener('click', handler));
+
+  el.volumeSlider.addEventListener('input', (e) => {
+    const value = parseFloat(e.target.value);
+    video.volume = value;
+    video.muted = value === 0;
+  });
+  onVideo('volumechange', syncVolumeUI);
+
+  el.progressContainer.addEventListener('click', (e) => {
+    if (!video.duration) return;
+    const rect = el.progressContainer.getBoundingClientRect();
+    video.currentTime = clamp((e.clientX - rect.left) / rect.width, 0, 1) * video.duration;
   });
 
-  muteBtn.addEventListener('click', () => {
-    mainVideo.muted = !mainVideo.muted;
-    if (mainVideo.muted) {
-      volumeSlider.value = 0;
-    } else {
-      if (mainVideo.volume === 0) mainVideo.volume = 1;
-      volumeSlider.value = mainVideo.volume;
+  onVideo('play', () => {
+    setIcon(el.playIcon, 'pause');
+    setHidden(el.bigPlayBtn, true);
+  });
+
+  onVideo('pause', () => {
+    setIcon(el.playIcon, 'play');
+    if (!video.ended && el.errorMessage.classList.contains('hidden')) setHidden(el.bigPlayBtn, false);
+    setInactive(false);
+  });
+
+  onVideo('waiting', () => setHidden(el.spinner, false));
+  onVideo('canplay playing loadedmetadata', () => setHidden(el.spinner, true));
+  onVideo('loadedmetadata', () => { el.duration.textContent = formatTime(video.duration); });
+
+  onVideo('timeupdate', () => {
+    if (!video.duration) return;
+    el.progressBar.style.width = `${(video.currentTime / video.duration) * 100}%`;
+    el.currentTime.textContent = formatTime(video.currentTime);
+  });
+
+  onVideo('progress', () => {
+    if (video.duration && video.buffered.length) {
+      el.bufferBar.style.width = `${(video.buffered.end(video.buffered.length - 1) / video.duration) * 100}%`;
     }
-    updateVolumeIcon();
   });
 
-  // ---------- Fullscreen ----------
-  fullscreenBtn.addEventListener('click', () => {
-    if (!document.fullscreenElement) {
-      videoContainer.requestFullscreen().catch(err => console.error(err));
+  onVideo('error', () => {
+    playlist.setUnavailable(state.index, true);
+    refreshPlaylist();
+    setHidden(el.spinner, true);
+    setHidden(el.bigPlayBtn, true);
+    setHidden(el.errorMessage, false);
+  });
+
+  onVideo('ended', () => {
+    const isLast = state.index === VIDEOS.length - 1;
+    // "one" and single-video "all" never reach here (native loop)
+    if (state.loopMode === 'all' || (el.autoplayNext.checked && !isLast)) {
+      playNext(); // loadVideo() wraps around
     } else {
-      document.exitFullscreen();
+      setHidden(el.bigPlayBtn, false);
+      setInactive(false);
     }
   });
 
   document.addEventListener('fullscreenchange', () => {
-    if (document.fullscreenElement) {
-      fullscreenExpandIcon.classList.add('hidden');
-      fullscreenCompressIcon.classList.remove('hidden');
-    } else {
-      fullscreenExpandIcon.classList.remove('hidden');
-      fullscreenCompressIcon.classList.add('hidden');
-    }
+    setIcon(el.fullscreenIcon, document.fullscreenElement ? 'compress' : 'expand');
   });
 
-  // ---------- Auto-hide controls after 3 seconds of inactivity ----------
-  function showControls() {
-    videoContainer.classList.remove('user-inactive');
-    clearTimeout(hideControlsTimeout);
-    hideControlsTimeout = setTimeout(() => {
-      if (!mainVideo.paused) {
-        videoContainer.classList.add('user-inactive');
-      }
-    }, 3000);
-  }
-
-  videoContainer.addEventListener('mousemove', showControls);
-  videoContainer.addEventListener('mouseleave', () => {
-    if (!mainVideo.paused) {
-      videoContainer.classList.add('user-inactive');
-    }
-  });
+  el.videoContainer.addEventListener('mousemove', showControls);
+  el.videoContainer.addEventListener('mouseleave', hideIfPlaying);
 
   // ---------- Keyboard shortcuts ----------
+  const KEY_ACTIONS = {
+    ' ': togglePlay,
+    k: togglePlay,
+    m: toggleMute,
+    f: () => el.fullscreenBtn.click(),
+    n: playNext,
+    p: playPrevious,
+    l: cycleLoopMode,
+    arrowleft: () => seekBy(-SEEK_STEP),
+    arrowright: () => seekBy(SEEK_STEP),
+  };
+  const PREVENT_DEFAULT = new Set([' ', 'k', 'arrowleft', 'arrowright']);
+
   document.addEventListener('keydown', (e) => {
     const tag = document.activeElement.tagName;
-    if (tag === 'INPUT') return;
+    const key = e.key.toLowerCase();
+    const action = KEY_ACTIONS[key];
 
-    switch (e.key.toLowerCase()) {
-      case ' ':
-        // Let a focused button (e.g. a playlist card) handle Space itself
-        if (tag === 'BUTTON') return;
-        e.preventDefault();
-        togglePlay();
-        break;
-      case 'k':
-        e.preventDefault();
-        togglePlay();
-        break;
-      case 'm':
-        muteBtn.click();
-        break;
-      case 'f':
-        fullscreenBtn.click();
-        break;
-      case 'n':
-        playNext();
-        break;
-      case 'p':
-        playPrevious();
-        break;
-      case 'l':
-        cycleLoopMode();
-        break;
-      case 'arrowleft':
-        e.preventDefault();
-        mainVideo.currentTime = Math.max(0, mainVideo.currentTime - 5);
-        break;
-      case 'arrowright':
-        e.preventDefault();
-        mainVideo.currentTime = Math.min(mainVideo.duration || 0, mainVideo.currentTime + 5);
-        break;
-    }
+    if (!action || e.ctrlKey || e.metaKey || e.altKey) return;
+    if (tag === 'INPUT' || (key === ' ' && tag === 'BUTTON')) return; // focused controls handle Space themselves
+
+    if (PREVENT_DEFAULT.has(key)) e.preventDefault();
+    action();
   });
 
-  // =====================================================================
-  //  START
-  // =====================================================================
-  renderPlaylist();
-  updateNavVisibility();
-  setLoopMode(loopMode);
+  // ---------- Start ----------
+  const hasMultiple = VIDEOS.length > 1;
+  [el.prevBtn, el.nextBtn, el.autoplayNext.closest('label')].forEach((n) => setHidden(n, !hasMultiple));
+  setHidden(el.loopBtn, !PLAYER_SETTINGS.showLoopButton);
+  setLoopMode(state.loopMode);
+  syncVolumeUI();
   loadVideo(0, false);
 });

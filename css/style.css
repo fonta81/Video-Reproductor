@@ -1,14 +1,24 @@
-/* Basic reset and page layout */
-* {
-  box-sizing: border-box;
-  margin: 0;
-  padding: 0;
+/* ---------- Design tokens ---------- */
+:root {
+  --bg: #0f172a;
+  --surface: #1e293b;
+  --surface-hover: #273449;
+  --surface-active: #1e3a5f;
+  --accent: #3b82f6;
+  --accent-hover: #2563eb;
+  --accent-light: #60a5fa;
+  --muted: #94a3b8;
+  --danger: #f87171;
+  --fast: 0.15s ease;
 }
+
+/* ---------- Base ---------- */
+* { box-sizing: border-box; margin: 0; padding: 0; }
 
 body {
   font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-  background-color: #0f172a;
-  color: #ffffff;
+  background-color: var(--bg);
+  color: #fff;
   display: flex;
   justify-content: center;
   align-items: flex-start;
@@ -24,12 +34,16 @@ body {
   gap: 20px;
 }
 
-/* Player container */
+.hidden { display: none !important; }
+
+.icon { width: 22px; height: 22px; display: block; flex: none; }
+
+/* ---------- Player ---------- */
 .video-container {
   position: relative;
   width: 100%;
   aspect-ratio: 16 / 9;
-  background-color: #000000;
+  background-color: #000;
   border-radius: 12px;
   overflow: hidden;
   box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.5), 0 8px 10px -6px rgba(0, 0, 0, 0.5);
@@ -44,63 +58,56 @@ video {
   cursor: pointer;
 }
 
-/* Transparent click layer */
+/* Transparent click layer (stops above the controls) */
 .video-overlay {
   position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 60px;
+  inset: 0 0 60px;
   cursor: pointer;
 }
 
-/* Big center play button */
-.big-play-btn {
+/* Centered overlays: big play button and spinner */
+.big-play-btn,
+.spinner {
   position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
+  inset: 0;
+  margin: auto;
+  border-radius: 50%;
+}
+
+.big-play-btn {
   width: 80px;
   height: 80px;
   border: none;
-  border-radius: 50%;
   background-color: rgba(59, 130, 246, 0.9);
-  color: #ffffff;
+  color: #fff;
   display: flex;
   align-items: center;
   justify-content: center;
-  padding-left: 6px; /* optically centers the triangle */
+  padding-left: 4px; /* optically centers the triangle */
   cursor: pointer;
   transition: transform 0.2s ease, background-color 0.2s ease;
   z-index: 3;
 }
 
+.big-play-btn .icon { width: 40px; height: 40px; }
+
 .big-play-btn:hover {
-  background-color: #3b82f6;
-  transform: translate(-50%, -50%) scale(1.08);
+  background-color: var(--accent);
+  transform: scale(1.08);
 }
 
-/* Loading spinner */
 .spinner {
-  position: absolute;
-  top: 50%;
-  left: 50%;
   width: 52px;
   height: 52px;
-  margin: -26px 0 0 -26px;
   border: 4px solid rgba(255, 255, 255, 0.25);
-  border-top-color: #ffffff;
-  border-radius: 50%;
+  border-top-color: #fff;
   animation: spin 0.9s linear infinite;
   pointer-events: none;
   z-index: 2;
 }
 
-@keyframes spin {
-  to { transform: rotate(360deg); }
-}
+@keyframes spin { to { transform: rotate(360deg); } }
 
-/* Error message */
 .error-message {
   position: absolute;
   inset: 0;
@@ -116,8 +123,8 @@ video {
 }
 
 .retry-btn {
-  background-color: #3b82f6;
-  color: #ffffff;
+  background-color: var(--accent);
+  color: #fff;
   border: none;
   border-radius: 8px;
   padding: 10px 20px;
@@ -126,24 +133,19 @@ video {
   cursor: pointer;
 }
 
-.retry-btn:hover {
-  background-color: #2563eb;
-}
+.retry-btn:hover { background-color: var(--accent-hover); }
 
-/* Controls panel */
+/* ---------- Controls ---------- */
 .controls-container {
   position: absolute;
-  bottom: 0;
-  left: 0;
-  right: 0;
+  inset: auto 0 0;
   background: linear-gradient(to top, rgba(0, 0, 0, 0.85), rgba(0, 0, 0, 0.3), transparent);
   padding: 10px 16px 14px;
-  transition: opacity 0.3s ease;
-  opacity: 1;
   display: flex;
   flex-direction: column;
   gap: 10px;
   z-index: 3;
+  transition: opacity 0.3s ease;
 }
 
 .video-container.user-inactive .controls-container {
@@ -152,56 +154,45 @@ video {
 }
 
 .video-container.user-inactive video,
-.video-container.user-inactive .video-overlay {
-  cursor: none;
-}
+.video-container.user-inactive .video-overlay { cursor: none; }
 
 /* Progress bar */
 .progress-bar-container {
+  position: relative;
   width: 100%;
   height: 6px;
   background: rgba(255, 255, 255, 0.3);
   border-radius: 3px;
   cursor: pointer;
-  position: relative;
-  transition: height 0.15s ease;
+  transition: height var(--fast);
 }
 
-.progress-bar-container:hover {
-  height: 8px;
-}
+.progress-bar-container:hover { height: 8px; }
 
-.buffer-bar {
-  position: absolute;
-  top: 0;
-  left: 0;
-  height: 100%;
-  width: 0%;
-  background-color: rgba(255, 255, 255, 0.35);
-  border-radius: 3px;
-}
-
+.buffer-bar,
 .progress-bar {
   position: absolute;
   top: 0;
   left: 0;
+  width: 0;
   height: 100%;
-  width: 0%;
-  background-color: #3b82f6;
   border-radius: 3px;
 }
+
+.buffer-bar { background-color: rgba(255, 255, 255, 0.35); }
+.progress-bar { background-color: var(--accent); }
 
 .progress-bar::after {
   content: '';
   position: absolute;
   right: -6px;
   top: 50%;
-  transform: translateY(-50%) scale(0);
   width: 12px;
   height: 12px;
-  background-color: #ffffff;
+  background-color: #fff;
   border-radius: 50%;
-  transition: transform 0.15s ease;
+  transform: translateY(-50%) scale(0);
+  transition: transform var(--fast);
 }
 
 .progress-bar-container:hover .progress-bar::after {
@@ -209,23 +200,19 @@ video {
 }
 
 /* Button rows */
-.controls-row {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
+.controls-row,
 .controls-left,
-.controls-right {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
+.controls-right,
+.volume-container { display: flex; align-items: center; }
+
+.controls-row { justify-content: space-between; }
+.controls-left, .controls-right { gap: 8px; }
+.volume-container { gap: 6px; }
 
 .control-btn {
   background: transparent;
   border: none;
-  color: #ffffff;
+  color: #fff;
   cursor: pointer;
   padding: 6px;
   border-radius: 50%;
@@ -235,30 +222,14 @@ video {
   transition: background-color 0.2s ease, transform 0.1s ease;
 }
 
-.control-btn:hover {
-  background-color: rgba(255, 255, 255, 0.2);
-}
+.control-btn:hover { background-color: rgba(255, 255, 255, 0.2); }
+.control-btn:active { transform: scale(0.95); }
 
-.control-btn:active {
-  transform: scale(0.95);
-}
 /* Repeat button: highlighted when a repeat mode is active */
-.control-btn.loop-btn.active {
-  color: #3b82f6;
-  background-color: rgba(59, 130, 246, 0.18);
-}
-
-.control-btn.loop-btn.active:hover {
-  background-color: rgba(59, 130, 246, 0.3);
-}
+.control-btn.loop-btn.active { color: var(--accent); background-color: rgba(59, 130, 246, 0.18); }
+.control-btn.loop-btn.active:hover { background-color: rgba(59, 130, 246, 0.3); }
 
 /* Volume slider expands on hover */
-.volume-container {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-
 .volume-slider {
   width: 0;
   opacity: 0;
@@ -272,30 +243,16 @@ video {
 }
 
 .volume-container:hover .volume-slider,
-.volume-slider:focus {
-  width: 70px;
-  opacity: 1;
-}
+.volume-slider:focus { width: 70px; opacity: 1; }
 
+/* Thumb rules can't share a selector list (vendor pseudo-elements) */
 .volume-slider::-webkit-slider-thumb {
-  appearance: none;
-  width: 12px;
-  height: 12px;
-  border-radius: 50%;
-  background: #ffffff;
-  cursor: pointer;
+  appearance: none; width: 12px; height: 12px; border-radius: 50%; background: #fff; cursor: pointer;
 }
-
 .volume-slider::-moz-range-thumb {
-  width: 12px;
-  height: 12px;
-  border-radius: 50%;
-  background: #ffffff;
-  border: none;
-  cursor: pointer;
+  width: 12px; height: 12px; border-radius: 50%; background: #fff; border: none; cursor: pointer;
 }
 
-/* Time display */
 .time-display {
   font-size: 13px;
   font-weight: 500;
@@ -317,14 +274,10 @@ video {
   font-size: 12px;
   text-transform: uppercase;
   letter-spacing: 1px;
-  color: #94a3b8;
+  color: var(--muted);
 }
 
-.now-playing-title {
-  font-size: 22px;
-  font-weight: 700;
-  margin-top: 2px;
-}
+.now-playing-title { font-size: 22px; font-weight: 700; margin-top: 2px; }
 
 .autoplay-toggle {
   display: flex;
@@ -337,7 +290,7 @@ video {
 }
 
 .autoplay-toggle input {
-  accent-color: #3b82f6;
+  accent-color: var(--accent);
   width: 16px;
   height: 16px;
   cursor: pointer;
@@ -352,7 +305,9 @@ video {
 
 .playlist-item {
   width: 100%;
-  background-color: #1e293b;
+  display: flex;
+  flex-direction: column;
+  background-color: var(--surface);
   border: 2px solid transparent;
   border-radius: 10px;
   overflow: hidden;
@@ -360,36 +315,20 @@ video {
   font: inherit;
   text-align: left;
   cursor: pointer;
-  display: flex;
-  flex-direction: column;
-  transition: transform 0.15s ease, border-color 0.15s ease, background-color 0.15s ease;
+  transition: transform var(--fast), border-color var(--fast), background-color var(--fast);
 }
 
-.playlist-item:hover {
-  background-color: #273449;
-  transform: translateY(-2px);
-}
-
-.playlist-item:focus-visible {
-  outline: 2px solid #ffffff;
-  outline-offset: 2px;
-}
-
-.playlist-item.active {
-  border-color: #3b82f6;
-  background-color: #1e3a5f;
-}
-
-.playlist-item.unavailable {
-  opacity: 0.45;
-}
+.playlist-item:hover { background-color: var(--surface-hover); transform: translateY(-2px); }
+.playlist-item:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
+.playlist-item.active { border-color: var(--accent); background-color: var(--surface-active); }
+.playlist-item.unavailable { opacity: 0.45; }
 
 .playlist-thumb {
   width: 100%;
   aspect-ratio: 16 / 9;
   object-fit: cover;
   display: block;
-  background-color: #0f172a;
+  background-color: var(--bg);
 }
 
 .playlist-info {
@@ -399,37 +338,12 @@ video {
   gap: 2px;
 }
 
-.playlist-title {
-  font-size: 14px;
-  font-weight: 600;
-  line-height: 1.3;
-}
-
-.playlist-status {
-  font-size: 12px;
-  color: #94a3b8;
-  min-height: 1em;
-}
-
-.playlist-item.active .playlist-status {
-  color: #60a5fa;
-}
-
-.playlist-item.unavailable .playlist-status {
-  color: #f87171;
-}
-
-/* Helper to hide elements */
-.hidden {
-  display: none !important;
-}
+.playlist-title { font-size: 14px; font-weight: 600; line-height: 1.3; }
+.playlist-status { font-size: 12px; color: var(--muted); min-height: 1em; }
+.playlist-item.active .playlist-status { color: var(--accent-light); }
+.playlist-item.unavailable .playlist-status { color: var(--danger); }
 
 @media (max-width: 520px) {
-  .switcher-header {
-    flex-direction: column;
-    align-items: flex-start;
-  }
-  .now-playing-title {
-    font-size: 18px;
-  }
+  .switcher-header { flex-direction: column; align-items: flex-start; }
+  .now-playing-title { font-size: 18px; }
 }
