@@ -6,7 +6,7 @@ var VIDEOS = [
   {
     title: 'Ena',
     src: './videos/ENA.mp4',
-    poster: 'https://i.redd.it/what-do-you-call-dream-bbq-ena-v0-6n804b0rr5xe1.gif?width=600&auto=webp&s=9b59d1125c04f6c2b82ce20a01cd9fcfa0dad12b'
+    poster: 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcST0km15wmNSbKN8Vkdc3v2v3l0dX5h_WwOVlul5CKx3Q&s=10'
   },
   {
     title: 'Gurren',
