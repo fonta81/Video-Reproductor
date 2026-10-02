@@ -22,7 +22,7 @@ var VIDEOS = [
    showLoopButton  false hides the button (the L key still works)
    ===================================================================== */
 var PLAYER_SETTINGS = {
-  loopMode: 'off',
+  loopMode: 'all',
   loopModes: ['off', 'one', 'all'],
   showLoopButton: true
 };
