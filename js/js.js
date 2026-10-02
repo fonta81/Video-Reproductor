@@ -5,12 +5,12 @@
 const VIDEOS = [
   {
     title: 'Ena',
-    src: '~/Vídeos/Pruebas/ENA.mp4',
+    src: './videos/ENA.mp4',
     poster: 'https://i.redd.it/what-do-you-call-dream-bbq-ena-v0-6n804b0rr5xe1.gif?width=600&auto=webp&s=9b59d1125c04f6c2b82ce20a01cd9fcfa0dad12b'
   },
   {
     title: 'Gurren',
-    src: '~/Vídeos/Pruebas/Gurren.mp4',
+    src: './videos/Gurren.mp4',
     poster: 'https://preview.redd.it/gurren-lagann-and-what-it-means-to-be-a-man-v0-xwfvxqjocw0e1.jpg?width=1100&format=pjpg&auto=webp&s=ae393ae8964964d3ad4a1189711a64d778626a10'
   },
 ];
