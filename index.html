@@ -2,86 +2,65 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Custom Video Player</title>
   <link rel="stylesheet" href="./css/style.css">
 </head>
 <body>
 
-  <!-- Icon sprite: every icon is defined once and swapped via <use href> -->
-  <svg hidden aria-hidden="true">
-    <defs>
-      <polygon id="speaker" points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/>
-      <g id="repeat-arrows">
-        <path d="m17 2 4 4-4 4"/><path d="M3 11v-1a4 4 0 0 1 4-4h14"/>
-        <path d="m7 22-4-4 4-4"/><path d="M21 13v1a4 4 0 0 1-4 4H3"/>
-      </g>
-    </defs>
-    <symbol id="i-play" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></symbol>
-    <symbol id="i-pause" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></symbol>
-    <symbol id="i-prev" viewBox="0 0 24 24" fill="currentColor"><polygon points="19 20 9 12 19 4 19 20"/><rect x="5" y="4" width="3" height="16"/></symbol>
-    <symbol id="i-next" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 4 15 12 5 20 5 4"/><rect x="16" y="4" width="3" height="16"/></symbol>
-    <symbol id="i-volume" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-      <use href="#speaker"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"/>
-    </symbol>
-    <symbol id="i-mute" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-      <use href="#speaker"/><line x1="23" y1="9" x2="17" y2="15"/><line x1="17" y1="9" x2="23" y2="15"/>
-    </symbol>
-    <symbol id="i-repeat" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-      <use href="#repeat-arrows"/>
-    </symbol>
-    <symbol id="i-repeat-one" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-      <use href="#repeat-arrows"/><path d="M11 10h1v4"/>
-    </symbol>
-    <symbol id="i-expand" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-      <path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/>
-    </symbol>
-    <symbol id="i-compress" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-      <path d="M8 3v3a2 2 0 0 1-2 2H3m18 0h-3a2 2 0 0 1-2-2V3m0 18v-3a2 2 0 0 1 2-2h3M3 16h3a2 2 0 0 1 2 2v3"/>
-    </symbol>
-  </svg>
+  <!-- Icons are plain inline SVG (no <use href> / <symbol>), toggled with CSS classes.
+       Every icon pair is "ico-a" (default) and "ico-b" (shown when the button has class "on"). -->
+  <div class="player-layout">
 
-  <main class="player-layout">
-
-    <div class="video-container" id="videoContainer">
-      <video id="mainVideo" preload="metadata" playsinline></video>
+    <div class="video-container" id="videoContainer" tabindex="0">
+      <video id="mainVideo" preload="metadata" playsinline webkit-playsinline></video>
 
       <div class="video-overlay" id="videoOverlay"></div>
 
-      <button class="big-play-btn" id="bigPlayBtn" aria-label="Play video">
-        <svg class="icon"><use href="#i-play"/></svg>
+      <button type="button" class="big-play-btn" id="bigPlayBtn" tabindex="-1" aria-label="Play video">
+        <svg class="ico" width="40" height="40" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>
       </button>
 
       <div class="spinner hidden" id="spinner" aria-label="Loading"></div>
 
       <div class="error-message hidden" id="errorMessage">
-        <p>Sorry, this video could not be loaded.</p>
-        <button class="retry-btn" id="retryBtn">Try again</button>
+        <div class="error-cell">
+          <p>Sorry, this video could not be loaded.</p>
+          <button type="button" class="retry-btn" id="retryBtn">Try again</button>
+        </div>
       </div>
 
       <div class="controls-container">
-        <div class="progress-bar-container" id="progressContainer">
+        <div class="progress-bar-container" id="progressContainer" tabindex="0" role="slider" aria-label="Seek">
           <div class="buffer-bar" id="bufferBar"></div>
           <div class="progress-bar" id="progressBar"></div>
         </div>
 
         <div class="controls-row">
           <div class="controls-left">
-            <button class="control-btn" id="prevBtn" title="Previous video (P)">
-              <svg class="icon"><use href="#i-prev"/></svg>
-            </button>
-            <button class="control-btn" id="playPauseBtn" title="Play/Pause (Space / K)">
-              <svg class="icon" id="playIcon"><use href="#i-play"/></svg>
-            </button>
-            <button class="control-btn" id="nextBtn" title="Next video (N)">
-              <svg class="icon"><use href="#i-next"/></svg>
+            <button type="button" class="control-btn" id="prevBtn" title="Previous video (P)">
+              <svg class="ico" width="26" height="26" viewBox="0 0 24 24" fill="currentColor"><polygon points="19 20 9 12 19 4 19 20"/><rect x="5" y="4" width="3" height="16"/></svg>
             </button>
 
-            <div class="volume-container">
-              <button class="control-btn" id="muteBtn" title="Mute (M)">
-                <svg class="icon" id="volumeIcon"><use href="#i-volume"/></svg>
-              </button>
-              <input type="range" id="volumeSlider" class="volume-slider" min="0" max="1" step="0.05" value="1">
+            <!-- class "on" = playing -->
+            <button type="button" class="control-btn" id="playPauseBtn" title="Play/Pause (Space / K)">
+              <svg class="ico ico-a" width="26" height="26" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+              <svg class="ico ico-b" width="26" height="26" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>
+            </button>
+
+            <button type="button" class="control-btn" id="nextBtn" title="Next video (N)">
+              <svg class="ico" width="26" height="26" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 4 15 12 5 20 5 4"/><rect x="16" y="4" width="3" height="16"/></svg>
+            </button>
+
+            <!-- class "on" = muted -->
+            <button type="button" class="control-btn" id="muteBtn" title="Mute (M)">
+              <svg class="ico ico-a" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>
+              <svg class="ico ico-b" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><line x1="23" y1="9" x2="17" y2="15"/><line x1="17" y1="9" x2="23" y2="15"/></svg>
+            </button>
+
+            <!-- Custom volume bar (replaces <input type="range">, which many TV browsers render poorly) -->
+            <div class="volume-bar" id="volumeBar" tabindex="0" role="slider" aria-label="Volume" aria-valuemin="0" aria-valuemax="100" aria-valuenow="100" title="Volume">
+              <div class="volume-fill" id="volumeFill"></div>
             </div>
 
             <div class="time-display">
@@ -90,25 +69,29 @@
           </div>
 
           <div class="controls-right">
-            <!-- Repeat mode cycles: off → one → all -->
-            <button class="control-btn loop-btn" id="loopBtn" title="Repeat: off (L)" aria-pressed="false" aria-label="Toggle repeat mode">
-              <svg class="icon" id="loopIcon"><use href="#i-repeat"/></svg>
+            <!-- Repeat cycles off > one > all. class "active" = repeat on, class "on" = "repeat one" icon -->
+            <button type="button" class="control-btn loop-btn" id="loopBtn" title="Repeat: off (L)" aria-pressed="false" aria-label="Toggle repeat mode">
+              <svg class="ico ico-a" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m17 2 4 4-4 4"/><path d="M3 11v-1a4 4 0 0 1 4-4h14"/><path d="m7 22-4-4 4-4"/><path d="M21 13v1a4 4 0 0 1-4 4H3"/></svg>
+              <svg class="ico ico-b" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m17 2 4 4-4 4"/><path d="M3 11v-1a4 4 0 0 1 4-4h14"/><path d="m7 22-4-4 4-4"/><path d="M21 13v1a4 4 0 0 1-4 4H3"/><path d="M11 10h1v4"/></svg>
             </button>
-            <button class="control-btn" id="fullscreenBtn" title="Fullscreen (F)">
-              <svg class="icon" id="fullscreenIcon"><use href="#i-expand"/></svg>
+
+            <!-- class "on" = fullscreen -->
+            <button type="button" class="control-btn" id="fullscreenBtn" title="Fullscreen (F)">
+              <svg class="ico ico-a" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/></svg>
+              <svg class="ico ico-b" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 3v3a2 2 0 0 1-2 2H3m18 0h-3a2 2 0 0 1-2-2V3m0 18v-3a2 2 0 0 1 2-2h3M3 16h3a2 2 0 0 1 2 2v3"/></svg>
             </button>
           </div>
         </div>
       </div>
     </div>
 
-    <section class="switcher">
+    <div class="switcher">
       <div class="switcher-header">
-        <div>
+        <div class="switcher-title">
           <span class="now-playing-label">Now playing</span>
           <h1 class="now-playing-title" id="videoTitle"></h1>
         </div>
-        <label class="autoplay-toggle">
+        <label class="autoplay-toggle" id="autoplayLabel">
           <input type="checkbox" id="autoplayNext" checked>
           <span>Autoplay next</span>
         </label>
@@ -116,9 +99,9 @@
 
       <!-- Filled automatically from the VIDEOS array in js.js -->
       <ul class="playlist" id="playlist"></ul>
-    </section>
+    </div>
 
-  </main>
+  </div>
 
   <script src="./js/js.js"></script>
 </body>
