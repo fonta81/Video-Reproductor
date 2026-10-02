@@ -1,5 +1,7 @@
 # Custom Video Player (Reproductor-Online)
 
+> **Language / Idioma:** **English** | [Español](README.es.md)
+
 A lightweight, dependency-free video player built with vanilla HTML, CSS, and JavaScript. Engineered for high compatibility across modern desktop and mobile browsers, as well as Smart TV platforms (Samsung Tizen, LG webOS, NetCast, and legacy WebKit browsers).
 
 Includes a local playlist, custom controls, Smart TV remote and keyboard navigation, repeat modes, buffer indicators, and a clean dark interface.
@@ -30,12 +32,13 @@ Includes a local playlist, custom controls, Smart TV remote and keyboard navigat
 ```
 Video-Reproductor/
 ├── css/
-│   └── style.css   # Legacy-safe styles, dark theme, layout, and control states
+│   └── style.css    # Legacy-safe styles, dark theme, layout, and control states
 ├── js/
-│   └── js.js       # Player logic: playlist, ES5 compatibility, remote/keyboard navigation
-├── index.html      # Accessible HTML5 structure and inline SVG icons
-├── LICENSE         # MIT License
-└── README.md       # Project documentation
+│   └── js.js        # Player logic: playlist, ES5 compatibility, remote/keyboard navigation
+├── index.html       # Accessible HTML5 structure and inline SVG icons
+├── LICENSE          # MIT License
+├── README.md        # English documentation
+└── README.es.md     # Spanish documentation
 ```
 
 ---
