@@ -3,6 +3,11 @@
    Fields: title (required), src (required), poster (optional thumbnail)
    ===================================================================== */
 var VIDEOS = [
+  // { EXAMPLE:
+  //   title: 'Ena',
+  //   src: './videos/ENA.mp4',
+  //   poster: 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcST0km15wmNSbKN8Vkdc3v2v3l0dX5h_WwOVlul5CKx3Q&s=10'
+  // },
   {
     title: 'Ena',
     src: './videos/ENA.mp4',
@@ -10,7 +15,7 @@ var VIDEOS = [
   },
   {
     title: 'Gurren',
-    src: './videos/Gurren.mp4',
+    src: './videos/Gurran.mp4',
     poster: 'https://preview.redd.it/gurren-lagann-and-what-it-means-to-be-a-man-v0-xwfvxqjocw0e1.jpg?width=1100&format=pjpg&auto=webp&s=ae393ae8964964d3ad4a1189711a64d778626a10'
   }
 ];
@@ -598,8 +603,8 @@ var PLAYER_SETTINGS = {
         if (window.tizen && window.tizen.tvinputdevice) {
           each(['MediaPlayPause', 'MediaPlay', 'MediaPause', 'MediaStop',
             'MediaRewind', 'MediaFastForward', 'MediaTrackPrevious', 'MediaTrackNext'], function (name) {
-            try { window.tizen.tvinputdevice.registerKey(name); } catch (err) { /* key not supported */ }
-          });
+              try { window.tizen.tvinputdevice.registerKey(name); } catch (err) { /* key not supported */ }
+            });
         }
       } catch (err) { /* not a Tizen TV */ }
     }
