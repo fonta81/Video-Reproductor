@@ -1,0 +1,7 @@
+services:
+  Reproductor_Web:
+    build: .
+    image: videos_ejemplo
+    container_name: Web_Video
+    ports:
+      - "8080:80"
