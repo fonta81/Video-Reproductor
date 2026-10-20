@@ -1,12 +1,13 @@
 /* =====================================================================
-   VIDEO LIST  -  the only part you need to edit to add/remove videos
-   Fields: title (required), src (required), poster (optional thumbnail)
+   LISTA DE VIDEOS  -  la unica parte que necesitas editar para agregar
+   o quitar videos de la lista de reproduccion.
+   Campos: title (requerido), src (requerido), poster (miniatura opcional)
    ===================================================================== */
 var VIDEOS = [
-  // { EXAMPLE:
+  // { EJEMPLO:
   //   title: 'Ena',
   //   src: './videos/ENA.mp4',
-  //   poster: 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcST0km15wmNSbKN8Vkdc3v2v3l0dX5h_WwOVlul5CKx3Q&s=10'
+  //   poster: 'https://...imagen.jpg'
   // },
   {
     title: 'Ena',
@@ -21,10 +22,10 @@ var VIDEOS = [
 ];
 
 /* =====================================================================
-   PLAYER SETTINGS
-   loopMode        Starting repeat mode: 'off' | 'one' | 'all'
-   loopModes       Modes the button / L key cycles through, in order
-   showLoopButton  false hides the button (the L key still works)
+   CONFIGURACION DEL REPRODUCTOR
+   loopMode        Modo de repeticion inicial: 'off' | 'one' | 'all'
+   loopModes       Modos por los que cicla el boton / tecla L, en orden
+   showLoopButton  false oculta el boton de repeticion (la tecla L sigue)
    ===================================================================== */
 var PLAYER_SETTINGS = {
   loopMode: 'all',
@@ -33,61 +34,74 @@ var PLAYER_SETTINGS = {
 };
 
 /* =====================================================================
-   Everything below is plain ES5 (no arrow functions, let/const, template
-   literals, spread, Promise-only APIs, classList, etc.).
+   Todo lo que sigue es JavaScript ES5 puro (sin arrow functions,
+   let/const, template literals, spread, APIs basadas en Promises,
+   classList, etc.). Asi corre de forma nativa en Smart TVs antiguas
+   (Samsung Tizen, LG webOS, NetCast) sin transpiladores ni polyfills.
    ===================================================================== */
 (function () {
   'use strict';
 
   /* ---------------------------------------------------------------
-     CONSTANTS
+     CONSTANTES
      --------------------------------------------------------------- */
-  var SEEK_STEP = 5;            // seconds, arrow-key seeking
-  var MEDIA_SEEK_STEP = 10;     // seconds, remote FF / RW keys
-  var VOLUME_STEP = 0.1;
-  var CONTROLS_HIDE_MS = 3000;
+  var SEEK_STEP = 5;            // segundos, al retroceder/avanzar con flechas
+  var MEDIA_SEEK_STEP = 10;     // segundos, teclas de RW / FF del mando
+  var VOLUME_STEP = 0.1;        // incremento de volumen con flechas
+  var CONTROLS_HIDE_MS = 3000;  // ms de inactividad antes de ocultar controles
 
-  // Key codes (keyboard + Samsung Tizen + LG webOS/NetCast remotes)
+  // Codigos de tecla: teclado estandar + mandos de Samsung Tizen y LG webOS/NetCast.
+  // Los codigos de TV (4xx/10xxx) son fijos y vienen definidos por cada plataforma.
   var KEY = {
     BACKSPACE: 8, ENTER: 13, ESC: 27, SPACE: 32,
     LEFT: 37, UP: 38, RIGHT: 39, DOWN: 40,
     F: 70, K: 75, L: 76, M: 77, N: 78, P: 80,
-    MEDIA_PAUSE: 19,
-    MEDIA_STOP: 413,
-    MEDIA_REWIND: 412,
-    MEDIA_PLAY: 415,
-    MEDIA_FAST_FORWARD: 417,
-    WEBOS_BACK: 461,
-    TIZEN_BACK: 10009,
-    TIZEN_PREV: 10232,
-    TIZEN_NEXT: 10233,
-    TIZEN_PLAY_PAUSE: 10252
+    MEDIA_PAUSE: 19,              // tecla Pause (tambien usada por algunos mandos)
+    MEDIA_STOP: 413,              // Stop del mando
+    MEDIA_REWIND: 412,            // Retroceso del mando
+    MEDIA_PLAY: 415,              // Play del mando
+    MEDIA_FAST_FORWARD: 417,      // Avance rapido del mando
+    WEBOS_BACK: 461,              // Back en LG webOS
+    TIZEN_BACK: 10009,            // Back en Samsung Tizen
+    TIZEN_PREV: 10232,            // Track anterior en Tizen
+    TIZEN_NEXT: 10233,            // Track siguiente en Tizen
+    TIZEN_PLAY_PAUSE: 10252       // Play/Pause en Tizen
   };
 
   /* ---------------------------------------------------------------
-     SHARED HELPERS
+     HELPERS COMPARTIDOS
      --------------------------------------------------------------- */
+
+  // console.log seguro: algunos navegadores embebidos fallan al aplicar
+  // 'arguments', por eso el try/catch.
   function log() {
     if (window.console && window.console.log) {
-      try { window.console.log.apply(window.console, arguments); } catch (e) { /* ignore */ }
+      try { window.console.log.apply(window.console, arguments); } catch (e) { /* ignorar */ }
     }
   }
 
+  // "5" -> "05": pone un cero a la izquierda para el formato MM:SS
   function pad(n) {
     n = String(n);
     return n.length < 2 ? '0' + n : n;
   }
 
+  // Limita un numero entre min y max (para volumen, seeks y porcentajes)
   function clamp(n, min, max) {
     return Math.min(Math.max(n, min), max);
   }
 
+  // Segundos -> "MM:SS". Devuelve "00:00" si el valor no es usable aun
+  // (metadatos no cargados, NaN, Infinity...).
   function formatTime(s) {
     if (typeof s !== 'number' || !isFinite(s) || s < 0) { return '00:00'; }
     return pad(Math.floor(s / 60)) + ':' + pad(Math.floor(s % 60));
   }
 
-  // classList replacement (missing or partial on some old TV engines)
+  // --- Sustitutos de classList (ausente o incompleto en motores viejos de TV) ---
+  // Todos trabajan sobre node.className (string) en lugar de la API moderna.
+
+  // Busca la clase rodeada de espacios para no confundir "on" con "one"
   function hasClass(node, name) {
     return (' ' + node.className + ' ').indexOf(' ' + name + ' ') !== -1;
   }
@@ -102,19 +116,22 @@ var PLAYER_SETTINGS = {
     while (hasClass(node, name)) {
       node.className = (' ' + node.className + ' ')
         .replace(' ' + name + ' ', ' ')
-        .replace(/^\s+|\s+$/g, '');
+        .replace(/^\s+|\s+$/g, ''); // trim manual (String.trim no existe en ES3)
     }
   }
 
+  // Con 'on' indefinido hace toggle; con true/false fuerza el estado
   function toggleClass(node, name, on) {
     if (on === undefined) { on = !hasClass(node, name); }
     if (on) { addClass(node, name); } else { removeClass(node, name); }
   }
 
+  // Oculta/muestra un nodo usando la utilidad CSS .hidden
   function setHidden(node, hidden) {
     toggleClass(node, 'hidden', hidden);
   }
 
+  // addEventListener con fallback a attachEvent (IE8 / motores muy viejos)
   function on(node, type, handler) {
     if (node.addEventListener) {
       node.addEventListener(type, handler, false);
@@ -123,16 +140,20 @@ var PLAYER_SETTINGS = {
     }
   }
 
+  // Ataja varios eventos a la vez: onMany(video, 'canplay playing', fn)
   function onMany(node, types, handler) {
     var list = types.split(' ');
     for (var i = 0; i < list.length; i++) { on(node, list[i], handler); }
   }
 
+  // preventDefault con fallback para motores viejos
   function stop(e) {
     if (e.preventDefault) { e.preventDefault(); } else { e.returnValue = false; }
   }
 
-  // play() returns a Promise on modern engines and undefined on old ones
+  // play() devuelve una Promise en motores modernos y undefined en los
+  // antiguos; este helper tolera ambos casos y loguea rechazos
+  // (p. ej. autoplay bloqueado por el navegador).
   function safePlay(v) {
     try {
       var p = v.play();
@@ -144,6 +165,7 @@ var PLAYER_SETTINGS = {
     }
   }
 
+  // Crea un elemento, le asigna clase y propiedades en un solo paso
   function createEl(tag, className, props) {
     var node = document.createElement(tag);
     if (className) { node.className = className; }
@@ -155,25 +177,31 @@ var PLAYER_SETTINGS = {
     return node;
   }
 
+  // Aplica una imagen de fondo escapando comillas dobles (evita romper el CSS)
   function setBackgroundImage(node, url) {
     node.style.backgroundImage = 'url("' + String(url).replace(/"/g, '%22') + '")';
   }
 
+  // forEach manual (Array.prototype.forEach no existe en ES3)
   function each(list, fn) {
     for (var i = 0; i < list.length; i++) { fn(list[i], i); }
   }
 
+  // indexOf manual por la misma razon
   function indexOf(list, item) {
     for (var i = 0; i < list.length; i++) { if (list[i] === item) { return i; } }
     return -1;
   }
 
+  // Coordenada X de un evento de raton/tactil (algunos motores viejos
+  // solo exponen pageX, no clientX)
   function pointerX(e) {
     if (typeof e.clientX === 'number') { return e.clientX; }
     return e.pageX - (window.pageXOffset || 0);
   }
 
-  // Fractional position (0..1) of a pointer event inside a bar element
+  // Posicion fraccional (0..1) del puntero dentro de una barra (progreso
+  // o volumen): es lo que permite hacer clic/tocar para saltar a un punto.
   function fractionInBar(e, bar) {
     var rect = bar.getBoundingClientRect();
     var width = rect.width || bar.offsetWidth || 1;
@@ -181,20 +209,24 @@ var PLAYER_SETTINGS = {
   }
 
   /* =====================================================================
-     PLAYLIST MODULE  -  builds the cards and reflects their state
+     MODULO DE LISTA DE REPRODUCCION  -  construye las tarjetas y refleja
+     su estado (activa / "Now playing" / "Unavailable")
      ===================================================================== */
   function createPlaylist(listEl, videos, onSelect) {
     var items = [];
 
+    // Construye la tarjeta de un video y la agrega a la lista <ul>
     function build(video, index) {
       var btn = createEl('button', 'playlist-item', { type: 'button' });
       btn.setAttribute('aria-label', 'Play ' + video.title);
 
+      // Miniatura 16:9: un span con la imagen como fondo (ver CSS)
       var thumb = createEl('span', 'playlist-thumb');
       var img = createEl('span', 'playlist-thumb-img');
       if (video.poster) { setBackgroundImage(img, video.poster); }
       thumb.appendChild(img);
 
+      // Titulo + linea de estado ("Now playing" / "Unavailable" / vacia)
       var status = createEl('span', 'playlist-status');
       var info = createEl('span', 'playlist-info');
       info.appendChild(createEl('span', 'playlist-title', { textContent: video.title }));
@@ -204,6 +236,7 @@ var PLAYER_SETTINGS = {
       btn.appendChild(info);
       on(btn, 'click', function () { onSelect(index); });
 
+      // Cada tarjeta vive dentro de un <li> (asi el CSS en columnas funciona)
       var li = document.createElement('li');
       li.appendChild(btn);
       listEl.appendChild(li);
@@ -212,12 +245,15 @@ var PLAYER_SETTINGS = {
 
     each(videos, build);
 
+    // API publica del modulo
     return {
+      // Devuelve los botones de tarjeta (los usa la navegacion con mando)
       buttons: function () {
         var list = [];
         each(items, function (item) { list.push(item.btn); });
         return list;
       },
+      // Marca la tarjeta activa y actualiza los textos de estado
       update: function (activeIndex) {
         each(items, function (item, i) {
           var active = i === activeIndex;
@@ -227,6 +263,7 @@ var PLAYER_SETTINGS = {
             : (active ? 'Now playing' : '');
         });
       },
+      // Marca/desmarca una tarjeta como no disponible (fallo de carga)
       setUnavailable: function (index, unavailable) {
         if (items[index]) { toggleClass(items[index].btn, 'unavailable', unavailable); }
       }
@@ -234,9 +271,12 @@ var PLAYER_SETTINGS = {
   }
 
   /* =====================================================================
-     PLAYER  (the script tag sits at the end of <body>, so the DOM is ready)
+     REPRODUCTOR  (el <script> esta al final de <body>, asi que el DOM
+     ya esta listo cuando esto se ejecuta)
      ===================================================================== */
   function init() {
+    // IDs de todos los elementos que el script necesita; se resuelven en
+    // un solo recorrido para no repetir getElementById por todas partes.
     var IDS = [
       'videoContainer', 'mainVideo', 'videoOverlay', 'bigPlayBtn', 'spinner', 'errorMessage', 'retryBtn',
       'progressContainer', 'progressBar', 'bufferBar', 'currentTime', 'duration',
@@ -249,29 +289,36 @@ var PLAYER_SETTINGS = {
     var video = el.mainVideo;
 
     var loopModes = PLAYER_SETTINGS.loopModes;
+    // Estado interno del reproductor
     var state = {
-      index: 0,
-      hideTimer: null,
-      pseudoFs: false,
-      shownSecond: -1,
+      index: 0,          // posicion actual dentro de VIDEOS
+      hideTimer: null,   // temporizador de auto-ocultado de controles
+      pseudoFs: false,   // true cuando el fallback CSS de fullscreen esta activo
+      shownSecond: -1,   // ultimo segundo pintado en el reloj (evita tocar el DOM en vano)
       loopMode: indexOf(loopModes, PLAYER_SETTINGS.loopMode) !== -1 ? PLAYER_SETTINGS.loopMode : loopModes[0]
     };
 
+    // Crea la lista de reproduccion; al hacer clic en una tarjeta se carga
+    // ese video con autoplay
     var playlist = createPlaylist(el.playlist, VIDEOS, function (i) { loadVideo(i, true); });
 
-    // ---------- Switcher ----------
+    // ---------- Selector de videos ----------
+    // Refresca titulo y tarjetas tras un cambio de video
     function refreshPlaylist() {
       playlist.update(state.index);
       el.videoTitle.textContent = VIDEOS[state.index] ? VIDEOS[state.index].title : '';
     }
 
+    // Carga el video en la posicion 'index' (con wrap-around: acepta
+    // indices fuera de rango para poder ir del ultimo al primero).
+    // autoplay=true lo reproduce de inmediato.
     function loadVideo(index, autoplay) {
       if (!VIDEOS.length) { return; }
 
-      state.index = (index + VIDEOS.length) % VIDEOS.length; // wraps at both ends
+      state.index = (index + VIDEOS.length) % VIDEOS.length; // envuelve en ambos extremos
       var item = VIDEOS[state.index];
 
-      // Reset the UI
+      // Reinicio de la UI: se oculta el error y se muestra spinner + boton grande
       setHidden(el.errorMessage, true);
       setHidden(el.spinner, false);
       setHidden(el.bigPlayBtn, false);
@@ -285,7 +332,7 @@ var PLAYER_SETTINGS = {
       video.src = item.src;
       try { video.load(); } catch (err) { log('load() failed:', err); }
 
-      playlist.setUnavailable(state.index, false); // allows retrying
+      playlist.setUnavailable(state.index, false); // permite reintentar cargas fallidas
       refreshPlaylist();
       if (autoplay) { safePlay(video); }
     }
@@ -293,27 +340,30 @@ var PLAYER_SETTINGS = {
     function playNext() { loadVideo(state.index + 1, true); }
     function playPrevious() { loadVideo(state.index - 1, true); }
 
+    // Reinicia el video actual desde el principio (modo "Repeat Current")
     function restartCurrent() {
       try { video.currentTime = 0; } catch (err) { log('seek failed:', err); }
       safePlay(video);
     }
 
-    // ---------- Repeat modes ----------
+    // ---------- Modos de repeticion ----------
     var LOOP_LABELS = {
       off: 'Repeat: off (L)',
       one: 'Repeat: current video (L)',
       all: 'Repeat: entire playlist (L)'
     };
 
-    // Looping is handled on 'ended' (video.loop is unreliable on old engines)
+    // El bucle se resuelde en el evento 'ended' porque la propiedad
+    // video.loop se comporta de forma inconsistente en motores antiguos.
     function setLoopMode(mode) {
       state.loopMode = mode;
-      toggleClass(el.loopBtn, 'on', mode === 'one');       // swaps to the "repeat one" icon
-      toggleClass(el.loopBtn, 'active', mode !== 'off');
+      toggleClass(el.loopBtn, 'on', mode === 'one');       // cambia al icono "repeat one"
+      toggleClass(el.loopBtn, 'active', mode !== 'off');   // resalta el boton si hay repeticion
       el.loopBtn.setAttribute('aria-pressed', String(mode !== 'off'));
       el.loopBtn.title = LOOP_LABELS[mode] || '';
     }
 
+    // Avanza al siguiente modo en la lista loopModes (boton o tecla L)
     function cycleLoopMode() {
       setLoopMode(loopModes[(indexOf(loopModes, state.loopMode) + 1) % loopModes.length]);
     }
@@ -323,7 +373,9 @@ var PLAYER_SETTINGS = {
       if (video.paused || video.ended) { safePlay(video); } else { video.pause(); }
     }
 
-    // ---------- Volume ----------
+    // ---------- Volumen ----------
+    // Sincroniza icono de mute y relleno de la barra con el estado real.
+    // Si esta silenciado (mute o volumen 0), la barra se pinta vacia.
     function syncVolumeUI() {
       var silent = video.muted || video.volume === 0;
       var pct = silent ? 0 : Math.round(video.volume * 100);
@@ -336,30 +388,36 @@ var PLAYER_SETTINGS = {
       value = clamp(value, 0, 1);
       try {
         video.volume = value;
-        video.muted = value === 0;
+        video.muted = value === 0; // volumen 0 implica silencio
       } catch (err) { log('volume failed:', err); }
       syncVolumeUI();
     }
 
     function toggleMute() {
       video.muted = !video.muted;
+      // Al desilenciar con volumen en 0, se restaura el volumen maximo
       if (!video.muted && video.volume === 0) { video.volume = 1; }
       syncVolumeUI();
     }
 
+    // delta positivo sube volumen, negativo lo baja (flechas sobre la barra)
     function changeVolume(delta) {
       var current = video.muted ? 0 : video.volume;
       setVolume(Math.round((current + delta) * 100) / 100);
     }
 
-    // ---------- Seeking ----------
+    // ---------- Seek (saltos de posicion) ----------
     function seekBy(delta) {
       var duration = video.duration;
-      if (typeof duration !== 'number' || !isFinite(duration)) { return; }
+      if (typeof duration !== 'number' || !isFinite(duration)) { return; } // sin metadatos aun
       try { video.currentTime = clamp(video.currentTime + delta, 0, duration); } catch (err) { log('seek failed:', err); }
     }
 
-    // ---------- Fullscreen (real API, vendor prefixes, then a CSS fallback) ----------
+    // ---------- Pantalla completa ----------
+    // Estrategia en 3 niveles:
+    //   1) API nativa estandar (requestFullscreen)
+    //   2) Variantes con prefijo de vendor (webkit/moz/ms)
+    //   3) Fallback "pseudo-fullscreen": clase CSS fixed a toda la ventana
     function getFullscreenElement() {
       return document.fullscreenElement ||
         document.webkitFullscreenElement ||
@@ -367,6 +425,7 @@ var PLAYER_SETTINGS = {
         document.msFullscreenElement || null;
     }
 
+    // Refleja el estado de fullscreen en la UI (clase del contenedor e icono)
     function syncFullscreenUI() {
       var full = !!getFullscreenElement() || state.pseudoFs;
       toggleClass(el.videoContainer, 'is-fullscreen', full);
@@ -376,6 +435,7 @@ var PLAYER_SETTINGS = {
     function setPseudoFullscreen(enabled) {
       state.pseudoFs = enabled;
       toggleClass(el.videoContainer, 'pseudo-fullscreen', enabled);
+      // Sin scroll para que la barra del navegador no estorbe
       document.body.style.overflow = enabled ? 'hidden' : '';
       syncFullscreenUI();
     }
@@ -384,11 +444,14 @@ var PLAYER_SETTINGS = {
       return !!getFullscreenElement() || state.pseudoFs;
     }
 
+    // Punto unico de entrada para F / boton / tecla Back
     function toggleFullscreen() {
       var box = el.videoContainer;
 
+      // 1) Si estamos en fallback CSS, solo hay que quitar la clase
       if (state.pseudoFs) { setPseudoFullscreen(false); return; }
 
+      // 2) Si ya hay fullscreen nativo, salir de el
       if (getFullscreenElement()) {
         var exit = document.exitFullscreen || document.webkitExitFullscreen ||
           document.webkitCancelFullScreen || document.mozCancelFullScreen || document.msExitFullscreen;
@@ -396,10 +459,13 @@ var PLAYER_SETTINGS = {
         return;
       }
 
+      // 3) Pedir fullscreen nativo (cualquier variante disponible)
       var request = box.requestFullscreen || box.webkitRequestFullscreen ||
         box.webkitRequestFullScreen || box.mozRequestFullScreen || box.msRequestFullscreen;
-      if (!request) { setPseudoFullscreen(true); return; }
+      if (!request) { setPseudoFullscreen(true); return; } // sin API: fallback CSS
 
+      // Algunas implementaciones devuelven Promise y rechazan si el navegador
+      // bloquea el fullscreen: en ese caso caemos al fallback
       try {
         var result = request.call(box);
         if (result && typeof result.then === 'function') {
@@ -410,7 +476,9 @@ var PLAYER_SETTINGS = {
       }
     }
 
-    // ---------- Auto-hide controls ----------
+    // ---------- Auto-ocultado de controles ----------
+    // JS activa/desactiva la clase "user-inactive"; el CSS se encarga de
+    // desvanecer la barra de controles.
     function setInactive(inactive) { toggleClass(el.videoContainer, 'user-inactive', inactive); }
     function hideIfPlaying() { if (!video.paused) { setInactive(true); } }
 
@@ -420,59 +488,69 @@ var PLAYER_SETTINGS = {
       state.hideTimer = setTimeout(hideIfPlaying, CONTROLS_HIDE_MS);
     }
 
-    // ---------- Mouse / click wiring ----------
+    // ---------- Cableado de raton / clic ----------
+    // Pares [elemento, accion] registrados de golpe con el helper 'each'
     each([
       [el.playPauseBtn, togglePlay],
       [el.videoOverlay, togglePlay],
       [el.bigPlayBtn, togglePlay],
       [el.prevBtn, playPrevious],
       [el.nextBtn, playNext],
-      [el.retryBtn, function () { loadVideo(state.index, false); }],
+      [el.retryBtn, function () { loadVideo(state.index, false); }], // reintenta sin autoplay
       [el.loopBtn, cycleLoopMode],
       [el.muteBtn, toggleMute],
       [el.fullscreenBtn, toggleFullscreen]
     ], function (pair) { on(pair[0], 'click', pair[1]); });
 
+    // Clic en la barra de volumen: el volumen pasa a ser el punto tocado
     on(el.volumeBar, 'click', function (e) {
       setVolume(fractionInBar(e || window.event, el.volumeBar));
     });
 
+    // Clic en la barra de progreso: salta a la fraccion tocada del video
     on(el.progressContainer, 'click', function (e) {
       var duration = video.duration;
       if (typeof duration !== 'number' || !isFinite(duration) || !duration) { return; }
       try { video.currentTime = fractionInBar(e || window.event, el.progressContainer) * duration; } catch (err) { log(err); }
     });
 
+    // Movimiento del raton = actividad: mostrar controles (y reprogramar ocultado)
     on(el.videoContainer, 'mousemove', showControls);
     on(el.videoContainer, 'mouseleave', hideIfPlaying);
 
-    // ---------- Video events ----------
+    // ---------- Eventos del <video> ----------
     onMany(video, 'volumechange', syncVolumeUI);
 
     on(video, 'play', function () {
-      addClass(el.playPauseBtn, 'on');
+      addClass(el.playPauseBtn, 'on');   // icono pasa a "pausa"
       setHidden(el.bigPlayBtn, true);
-      showControls();
+      showControls();                    // arranca la cuenta regresiva de ocultado
     });
 
     on(video, 'pause', function () {
-      removeClass(el.playPauseBtn, 'on');
+      removeClass(el.playPauseBtn, 'on'); // icono vuelve a "play"
+      // Al pausar (sin haber terminado ni estar en error) reaparece el boton grande
       if (!video.ended && hasClass(el.errorMessage, 'hidden')) { setHidden(el.bigPlayBtn, false); }
       clearTimeout(state.hideTimer);
-      setInactive(false);
+      setInactive(false);                // controles siempre visibles en pausa
     });
 
+    // "waiting" = el video se quedo sin datos y esta rebufferizando
     on(video, 'waiting', function () { setHidden(el.spinner, false); });
+    // Cualquiera de estos eventos significa que ya hay datos que mostrar
     onMany(video, 'canplay playing loadeddata loadedmetadata', function () { setHidden(el.spinner, true); });
+    // Metadatos listos: ya conocemos la duracion total
     on(video, 'loadedmetadata', function () { el.duration.textContent = formatTime(video.duration); });
     on(video, 'durationchange', function () { el.duration.textContent = formatTime(video.duration); });
 
     on(video, 'timeupdate', function () {
       var duration = video.duration;
       if (typeof duration !== 'number' || !isFinite(duration) || !duration) { return; }
+      // Rellena la barra de progreso en porcentaje
       el.progressBar.style.width = ((video.currentTime / duration) * 100) + '%';
 
-      // Only touch the DOM text when the displayed second changes (cheaper on slow TVs)
+      // Optimizacion para TVs lentas: solo se toca el texto del reloj cuando
+      // cambia el segundo visible, no en cada tick del evento.
       var second = Math.floor(video.currentTime);
       if (second !== state.shownSecond) {
         state.shownSecond = second;
@@ -480,32 +558,36 @@ var PLAYER_SETTINGS = {
       }
     });
 
+    // Rellena la barra de buffer con el porcentaje ya descargado
     on(video, 'progress', function () {
       var duration = video.duration;
       if (duration && video.buffered && video.buffered.length) {
         try {
           el.bufferBar.style.width = ((video.buffered.end(video.buffered.length - 1) / duration) * 100) + '%';
-        } catch (err) { /* ranges can change while reading */ }
+        } catch (err) { /* los rangos de buffer pueden cambiar mientras se leen */ }
       }
     });
 
+    // Error de carga: marca la tarjeta como Unavailable y muestra el overlay
     on(video, 'error', function () {
       playlist.setUnavailable(state.index, true);
       refreshPlaylist();
       setHidden(el.spinner, true);
       setHidden(el.bigPlayBtn, true);
       setHidden(el.errorMessage, false);
-      try { el.retryBtn.focus(); } catch (err) { /* ignore */ }
+      try { el.retryBtn.focus(); } catch (err) { /* ignorar */ }
     });
 
+    // Fin del video: decide que hacer segun el modo de repeticion / autoplay
     on(video, 'ended', function () {
       var isLast = state.index === VIDEOS.length - 1;
 
       if (state.loopMode === 'one') { restartCurrent(); return; }
       if (state.loopMode === 'all') {
-        if (VIDEOS.length === 1) { restartCurrent(); } else { playNext(); } // loadVideo() wraps around
+        if (VIDEOS.length === 1) { restartCurrent(); } else { playNext(); } // loadVideo() envuelve solo
         return;
       }
+      // loopMode 'off': solo avanza si el toggle "Autoplay next" esta activo
       if (el.autoplayNext.checked && !isLast && VIDEOS.length > 1) {
         playNext();
       } else {
@@ -514,9 +596,12 @@ var PLAYER_SETTINGS = {
       }
     });
 
+    // Cualquier cambio de fullscreen (nativo, de cualquier vendor) resincroniza la UI
     onMany(document, 'fullscreenchange webkitfullscreenchange mozfullscreenchange MSFullscreenChange', syncFullscreenUI);
 
-    // ---------- Remote / keyboard focus navigation ----------
+    // ---------- Navegacion de foco (mando / teclado) ----------
+    // Determina si un elemento es visible (para excluir los ocultos de las
+    // filas de navegacion). offsetWidth/Height > 0 es el test clasico.
     function isShown(node) {
       return !!node && !hasClass(node, 'hidden') && (node.offsetWidth > 0 || node.offsetHeight > 0);
     }
@@ -527,7 +612,9 @@ var PLAYER_SETTINGS = {
       return out;
     }
 
-    // Focusable rows, top to bottom. Playlist cards are grouped by their on-screen row.
+    // Filas de elementos enfocables, de arriba abajo. Las tarjetas de la
+    // lista se AGRUPAN por fila visual segun su posicion en pantalla, asi
+    // una cuadricula de varias columnas se navega tal como se ve.
     function getNavRows() {
       var rows = [
         [el.videoContainer],
@@ -541,6 +628,7 @@ var PLAYER_SETTINGS = {
       var currentTop = null;
       each(cards, function (btn) {
         var top = btn.getBoundingClientRect().top;
+        // Si el borde superior difiere > 4px, es una fila nueva
         if (current === null || Math.abs(top - currentTop) > 4) {
           current = [];
           currentTop = top;
@@ -551,6 +639,8 @@ var PLAYER_SETTINGS = {
       return rows;
     }
 
+    // Centro horizontal de un elemento: referencia para mover el foco
+    // "hacia donde apunta" el usuario al cambiar de fila
     function centerX(node) {
       var rect = node.getBoundingClientRect();
       return rect.left + (rect.width || node.offsetWidth) / 2;
@@ -560,6 +650,7 @@ var PLAYER_SETTINGS = {
       try { node.focus(); } catch (err) { log(err); }
     }
 
+    // Ubica un nodo dentro de la matriz de filas: { fila, columna }
     function locate(rows, node) {
       for (var r = 0; r < rows.length; r++) {
         for (var c = 0; c < rows[r].length; c++) {
@@ -569,24 +660,31 @@ var PLAYER_SETTINGS = {
       return null;
     }
 
+    // Movimiento espacial del foco (left/right/up/down desde el D-pad)
     function moveFocus(direction) {
       var rows = getNavRows();
       var pos = locate(rows, document.activeElement);
 
+      // Si el foco esta fuera del reproductor (p. ej. tras un clic fuera),
+      // se recupera enfocando el contenedor del video
       if (!pos) { focusNode(el.videoContainer); return; }
 
+      // Izquierda/derecha: moverse dentro de la misma fila
       if (direction === 'left' || direction === 'right') {
         var target = rows[pos.row][pos.col + (direction === 'left' ? -1 : 1)];
         if (target) { focusNode(target); }
         return;
       }
 
+      // Arriba/abajo: subir o bajar una fila (saltandose filas vacias)
       var step = direction === 'up' ? -1 : 1;
       var r = pos.row + step;
       while (rows[r] && rows[r].length === 0) { r += step; }
       if (!rows[r]) { return; }
 
-      // pick the element in the next row closest (horizontally) to the current one
+      // Dentro de la fila destino se elige el elemento cuyo centro
+      // horizontal este MAS CERCA del elemento actual: la navegacion sigue
+      // la disposicion en pantalla en vez de un indice fijo.
       var fromX = centerX(document.activeElement);
       var best = rows[r][0];
       var bestDist = Math.abs(centerX(best) - fromX);
@@ -597,34 +695,44 @@ var PLAYER_SETTINGS = {
       focusNode(best);
     }
 
-    // Tizen only delivers media keys to apps that register them
+    // En Samsung Tizen las teclas multimedia SOLO se entregan a las apps
+    // que las registran explicitamente al arrancar; aqui se pide todas
+    // las disponibles, ignorando las que la plataforma no soporte.
     function registerTvKeys() {
       try {
         if (window.tizen && window.tizen.tvinputdevice) {
           each(['MediaPlayPause', 'MediaPlay', 'MediaPause', 'MediaStop',
             'MediaRewind', 'MediaFastForward', 'MediaTrackPrevious', 'MediaTrackNext'], function (name) {
-              try { window.tizen.tvinputdevice.registerKey(name); } catch (err) { /* key not supported */ }
+              try { window.tizen.tvinputdevice.registerKey(name); } catch (err) { /* tecla no soportada */ }
             });
         }
-      } catch (err) { /* not a Tizen TV */ }
+      } catch (err) { /* no es una TV Tizen */ }
     }
 
+    // Comportamiento de Back / Esc en 3 pasos:
+    //   1) Si hay fullscreen (real o pseudo), salir de el
+    //   2) Si el foco no esta en el reproductor, devolverlo ahi
+    //   3) Si ya estaba en el reproductor, en Tizen se cierra la app
+    //      (el resto de plataformas gestiona Back de forma nativa)
     function handleBack() {
       if (isFullscreen()) { toggleFullscreen(); return; }
       if (document.activeElement !== el.videoContainer) { focusNode(el.videoContainer); return; }
-      // Already on the player: let Tizen exit the app (other platforms handle Back natively)
       try {
         if (window.tizen && window.tizen.application) { window.tizen.application.getCurrentApplication().exit(); }
-      } catch (err) { /* ignore */ }
+      } catch (err) { /* ignorar */ }
     }
 
+    // Manejador central de teclado y mando a distancia
     function onKeyDown(e) {
       e = e || window.event;
       var code = e.keyCode || e.which;
+      // No interferir con atajos del navegador/SO (Ctrl, Alt, Cmd)
       if (e.ctrlKey || e.metaKey || e.altKey) { return; }
 
       var active = document.activeElement;
       var tag = active ? active.tagName : '';
+      // "Sobre el reproductor" = nada enfocado, body, o el contenedor mismo;
+      // en ese estado las flechas horizontales hacen seek directamente.
       var onPlayer = !active || active === document.body || active === el.videoContainer;
       var onProgress = active === el.progressContainer;
       var onVolume = active === el.volumeBar;
@@ -632,7 +740,9 @@ var PLAYER_SETTINGS = {
 
       switch (code) {
         case KEY.SPACE:
-          if (tag === 'BUTTON' || tag === 'INPUT') { return; } // focused controls handle Space themselves
+          // Espacio sobre un boton/input se deja pasar: su comportamiento
+          // nativo de "clic" ya hace lo correcto.
+          if (tag === 'BUTTON' || tag === 'INPUT') { return; }
           togglePlay();
           break;
         case KEY.K:
@@ -646,8 +756,9 @@ var PLAYER_SETTINGS = {
           video.pause();
           break;
         case KEY.MEDIA_STOP:
+          // Stop = pausar y volver al inicio del video
           video.pause();
-          try { video.currentTime = 0; } catch (err) { /* ignore */ }
+          try { video.currentTime = 0; } catch (err) { /* ignorar */ }
           break;
         case KEY.MEDIA_FAST_FORWARD:
           seekBy(MEDIA_SEEK_STEP);
@@ -675,10 +786,13 @@ var PLAYER_SETTINGS = {
         case KEY.LEFT:
         case KEY.RIGHT:
           if (onPlayer || onProgress) {
+            // Foco "general" o en la barra de progreso: flechas = seek 5 s
             seekBy(code === KEY.LEFT ? -SEEK_STEP : SEEK_STEP);
           } else if (onVolume) {
+            // Foco en la barra de volumen: flechas = ajustar volumen
             changeVolume(code === KEY.LEFT ? -VOLUME_STEP : VOLUME_STEP);
           } else {
+            // Cualquier otro control: navegacion espacial
             moveFocus(code === KEY.LEFT ? 'left' : 'right');
           }
           break;
@@ -689,12 +803,13 @@ var PLAYER_SETTINGS = {
           moveFocus('down');
           break;
         case KEY.ENTER:
+          // Enter contextual segun donde este el foco
           if (onPlayer || onProgress) {
             togglePlay();
           } else if (onVolume) {
             toggleMute();
           } else if (active && active.click) {
-            active.click();
+            active.click(); // activa el boton/enfoque seleccionado
           } else {
             handled = false;
           }
@@ -702,22 +817,26 @@ var PLAYER_SETTINGS = {
         case KEY.TIZEN_BACK:
         case KEY.WEBOS_BACK:
         case KEY.ESC:
-          if (code === KEY.ESC && !state.pseudoFs) { return; } // real fullscreen already handles Esc natively
+          // Esc solo se procesa en pseudo-fullscreen; en fullscreen real
+          // ya lo gestiona el navegador de forma nativa.
+          if (code === KEY.ESC && !state.pseudoFs) { return; }
           handleBack();
           break;
         default:
-          handled = false;
+          handled = false; // tecla no reconocida: no se intercepta
       }
 
       if (handled) {
-        stop(e);
-        showControls();
+        stop(e);         // evita el scroll/accion por defecto del navegador
+        showControls();  // cualquier tecla cuenta como actividad del usuario
       }
     }
 
     on(document, 'keydown', onKeyDown);
 
-    // ---------- Start ----------
+    // ---------- Arranque ----------
+    // Con un solo video no tiene sentido cambiar de pista ni autoplay-next:
+    // se ocultan prev/next y el toggle.
     var hasMultiple = VIDEOS.length > 1;
     each([el.prevBtn, el.nextBtn, el.autoplayLabel], function (node) { setHidden(node, !hasMultiple); });
     setHidden(el.loopBtn, !PLAYER_SETTINGS.showLoopButton);
@@ -725,8 +844,8 @@ var PLAYER_SETTINGS = {
     setLoopMode(state.loopMode);
     syncVolumeUI();
     syncFullscreenUI();
-    loadVideo(0, false);
-    focusNode(el.videoContainer); // so remote arrows seek right away
+    loadVideo(0, false);              // carga el primer video SIN reproducir
+    focusNode(el.videoContainer);     // las flechas del mando ya hacen seek
   }
 
   init();
