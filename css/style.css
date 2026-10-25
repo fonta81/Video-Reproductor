@@ -1,14 +1,6 @@
-/* =====================================================================
-   Legacy-TV-safe stylesheet
-   Reglas de oro para no romper Smart TVs antiguas:
-   - Sin variables CSS, aspect-ratio, inset, gap, grid, object-fit ni :focus-visible
-   - Layout con inline-block / table-cell / posicion absoluta
-   - Prefijos -webkit- donde el WebKit viejo (Tizen 2.x/3.x, webOS 1-3, NetCast)
-     los necesita
-   ===================================================================== */
+/* Estilos compatibles con Smart TVs legacy (sin Grid, Flexbox, variables CSS ni aspect-ratio) */
 
 /* ---------- Base ---------- */
-/* Box-sizing universal para que width/height incluyan padding y borde */
 * {
   -webkit-box-sizing: border-box;
   box-sizing: border-box;
@@ -16,17 +8,16 @@
   padding: 0;
 }
 
-html, body { background-color: #0f172a; } /* fondo oscuro general */
+html, body { background-color: #0f172a; }
 
 body {
   font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
   color: #fff;
   padding: 20px;
-  /* Evita el flash azul de "tap" en dispositivos tactiles */
-  -webkit-tap-highlight-color: rgba(0, 0, 0, 0);
+  -webkit-tap-highlight-color: rgba(0, 0, 0, 0); /* Evita flash azul al tocar */
 }
 
-/* Contenedor central limitado en anchura; mas amplio en pantallas grandes */
+/* Contenedor central */
 .player-layout {
   width: 100%;
   max-width: 900px;
@@ -37,12 +28,11 @@ body {
   .player-layout { max-width: 1180px; }
 }
 
-/* Utilidad para ocultar elementos (JS la activa con la clase "hidden") */
 .hidden { display: none !important; }
 
 button { font-family: inherit; }
 
-/* Anillo de foco visible: esencial para navegar con D-pad / mando */
+/* Indicador de foco para navegacion con D-pad / teclado */
 button:focus,
 .progress-bar-container:focus,
 .volume-bar:focus {
@@ -53,15 +43,12 @@ button:focus,
 /* ---------- Iconos ---------- */
 .ico { display: block; }
 
-/* Iconos de dos estados: se muestra ico-a por defecto e ico-b cuando el
-   boton padre tiene la clase "on" (controlado por JS, no por classList). */
+/* Alternancia de estados ico-a / ico-b mediante clase .on */
 .control-btn .ico-b { display: none; }
 .control-btn.on .ico-a { display: none; }
 .control-btn.on .ico-b { display: block; }
 
-/* ---------- Reproductor (16:9 con la tecnica de padding-bottom) ----------
-   No existe aspect-ratio en navegadores viejos: la altura se logra con
-   padding-bottom: 56.25% (9/16) sobre un contenedor de alto 0. */
+/* ---------- Reproductor (proporcion 16:9 via padding-bottom) ---------- */
 .video-container {
   position: relative;
   width: 100%;
@@ -74,10 +61,9 @@ button:focus,
   box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.5);
   -webkit-user-select: none;
   user-select: none;
-  outline: none; /* el contenedor es el objetivo de foco "general"; no necesita anillo */
+  outline: none;
 }
 
-/* El <video> rellena el cuadro 16:9 creado por el padding */
 .video-container video {
   position: absolute;
   top: 0;
@@ -89,14 +75,13 @@ button:focus,
   cursor: pointer;
 }
 
-/* Fullscreen: comun (API nativa) o pseudo-fullscreen (fallback CSS) */
+/* Fullscreen nativo y fallback pseudo-fullscreen */
 .video-container.is-fullscreen {
   height: 100%;
   padding-bottom: 0;
   border-radius: 0;
 }
 
-/* Fallback: fijo a toda la ventana cuando la API de Fullscreen no existe */
 .video-container.pseudo-fullscreen {
   position: fixed;
   top: 0;
@@ -108,14 +93,12 @@ button:focus,
   z-index: 9999;
 }
 
-/* Las pseudo-clases de cada vendor deben ir en reglas separadas:
-   un selector desconocido hace caer TODA la regla en navegadores viejos */
+/* Selectores vendor separados para evitar descarte de reglas en navegadores legacy */
 .video-container:-webkit-full-screen { width: 100%; height: 100%; padding-bottom: 0; border-radius: 0; }
 .video-container:-moz-full-screen { width: 100%; height: 100%; padding-bottom: 0; border-radius: 0; }
 .video-container:fullscreen { width: 100%; height: 100%; padding-bottom: 0; border-radius: 0; }
 
-/* Capa de clic transparente; se detiene 70px antes del borde inferior
-   para no tapar los controles */
+/* Capa transparente de clic (espacio inferior reservado para controles) */
 .video-overlay {
   position: absolute;
   top: 0;
@@ -125,14 +108,14 @@ button:focus,
   cursor: pointer;
 }
 
-/* Superposiciones centradas: boton grande de play y spinner */
+/* Boton central de reproduccion */
 .big-play-btn {
   position: absolute;
   top: 50%;
   left: 50%;
   width: 80px;
   height: 80px;
-  margin: -40px 0 0 -40px; /* centrado clasico: mitad del tamaño en negativo */
+  margin: -40px 0 0 -40px;
   border: none;
   border-radius: 50%;
   background-color: rgba(59, 130, 246, 0.9);
@@ -143,8 +126,6 @@ button:focus,
   transition: background-color 0.2s ease;
 }
 
-/* El icono se posiciona a mano: el margen izquierdo centra el triangulo
-   de forma optica dentro del circulo */
 .big-play-btn .ico {
   position: absolute;
   top: 20px;
@@ -153,8 +134,7 @@ button:focus,
 
 .big-play-btn:hover { background-color: #3b82f6; }
 
-/* Spinner de carga: un borde circular con solo el borde superior visible,
-   girando con animacion (prefijo -webkit- para WebKit viejo) */
+/* Indicador de carga con animacion */
 .spinner {
   position: absolute;
   top: 50%;
@@ -179,7 +159,7 @@ button:focus,
   to { transform: rotate(360deg); }
 }
 
-/* Capa de error a pantalla completa, centrada con tabla (sin flexbox) */
+/* Capa de error centrada mediante display: table */
 .error-message {
   position: absolute;
   top: 0;
@@ -218,9 +198,7 @@ button:focus,
 .retry-btn:hover { background-color: #2563eb; }
 
 /* ---------- Controles ---------- */
-/* Barra de controles pegada abajo, con degradado oscuro hacia arriba.
-   La doble declaracion de background es fallback: si el degradado no se
-   entiende, queda el color semitransparente plano. */
+/* Barra de controles con fallback de fondo degradado */
 .controls-container {
   position: absolute;
   left: 0;
@@ -235,18 +213,16 @@ button:focus,
   transition: opacity 0.3s ease;
 }
 
-/* JS anade la clase "user-inactive" al contenedor tras 3 s sin actividad:
-   los controles se desvanecen y dejan de recibir clics mientras se reproduce */
+/* Ocultacion automatica por inactividad */
 .video-container.user-inactive .controls-container {
   opacity: 0;
   pointer-events: none;
 }
 
-/* En modo inactivo tambien se oculta el cursor sobre el video */
 .video-container.user-inactive video,
 .video-container.user-inactive .video-overlay { cursor: none; }
 
-/* Barra de progreso (fondo gris semitransparente, alto de 8px) */
+/* Barra de progreso */
 .progress-bar-container {
   position: relative;
   width: 100%;
@@ -257,13 +233,10 @@ button:focus,
   cursor: pointer;
 }
 
-/* Al pasar el raton o enfocar con el mando, la barra crece un poco
-   (se compensa el margen para que la fila de abajo no salte) */
 .progress-bar-container:hover,
 .progress-bar-container:focus { height: 12px; margin-bottom: 8px; }
 
-/* Las barras de buffer y progreso se dibujan como rellenos absolutos
-   cuyo ancho (0-100%) controla JS */
+/* Rellenos de buffer y progreso */
 .buffer-bar,
 .progress-bar {
   position: absolute;
@@ -274,11 +247,10 @@ button:focus,
   border-radius: 4px;
 }
 
-.buffer-bar { background-color: rgba(255, 255, 255, 0.35); } /* zona ya descargada */
-.progress-bar { background-color: #3b82f6; }                 /* zona ya vista */
+.buffer-bar { background-color: rgba(255, 255, 255, 0.35); }
+.progress-bar { background-color: #3b82f6; }
 
-/* Mango de arrastre: solo visible al hover / foco (sin animaciones de
-   transform, por compatibilidad). Se dibuja con :after. */
+/* Indicador de posicion en hover/foco */
 .progress-bar:after {
   content: '';
   display: none;
@@ -295,9 +267,7 @@ button:focus,
 .progress-bar-container:hover .progress-bar:after,
 .progress-bar-container:focus .progress-bar:after { display: block; }
 
-/* Fila de botones: maquetacion tipo tabla en vez de flexbox.
-   font-size: 0 elimina los huecos que crean los inline-block por el
-   espacio en blanco del HTML. */
+/* Fila de botones maquetada con table (sustituto de flexbox) */
 .controls-row {
   display: table;
   width: 100%;
@@ -313,7 +283,7 @@ button:focus,
 
 .controls-right { text-align: right; }
 
-/* Boton de control circular generico; el icono se centra a mano */
+/* Boton de control circular */
 .control-btn {
   position: relative;
   display: inline-block;
@@ -338,12 +308,12 @@ button:focus,
 .control-btn:hover,
 .control-btn:focus { background-color: rgba(255, 255, 255, 0.25); }
 
-/* Boton de repetir resaltado en azul cuando hay un modo activo */
+/* Boton de repeticion activo */
 .control-btn.loop-btn.active { color: #3b82f6; background-color: rgba(59, 130, 246, 0.18); }
 .control-btn.loop-btn.active:hover,
 .control-btn.loop-btn.active:focus { background-color: rgba(59, 130, 246, 0.35); }
 
-/* Barra de volumen (un div siempre visible, operable con mando) */
+/* Barra de volumen */
 .volume-bar {
   position: relative;
   display: inline-block;
@@ -356,7 +326,6 @@ button:focus,
   cursor: pointer;
 }
 
-/* Relleno blanco cuyo ancho (%) indica el volumen actual */
 .volume-fill {
   position: absolute;
   top: 0;
@@ -367,7 +336,6 @@ button:focus,
   border-radius: 4px;
 }
 
-/* Marcador de tiempo junto al volumen */
 .time-display {
   display: inline-block;
   vertical-align: middle;
@@ -381,7 +349,6 @@ button:focus,
 /* ---------- Selector de videos ---------- */
 .switcher { margin-top: 20px; }
 
-/* Clearfix con overflow:hidden para contener los floats del titulo y el toggle */
 .switcher-header {
   overflow: hidden;
   margin-bottom: 14px;
@@ -408,7 +375,6 @@ button:focus,
 .autoplay-toggle input:focus { outline: 3px solid #fff; }
 .autoplay-toggle span { vertical-align: middle; }
 
-/* Etiqueta pequena "NOW PLAYING" sobre el titulo del video actual */
 .now-playing-label {
   display: block;
   font-size: 12px;
@@ -419,8 +385,7 @@ button:focus,
 
 .now-playing-title { font-size: 24px; font-weight: bold; margin-top: 2px; }
 
-/* Lista: tarjetas inline-block en columnas de porcentaje (sustituto de CSS Grid).
-   font-size: 0 quita los huecos entre tarjetas; se restaura dentro de cada li. */
+/* Lista de reproduccion: columnas porcentuales inline-block */
 .playlist {
   list-style: none;
   margin: 0 -6px;
@@ -430,18 +395,17 @@ button:focus,
 .playlist li {
   display: inline-block;
   vertical-align: top;
-  width: 25%; /* 4 columnas por defecto */
+  width: 25%;
   padding: 6px;
   font-size: 16px;
 }
 
-/* Tarjeta clicable de la lista de reproduccion */
 .playlist-item {
   display: block;
   width: 100%;
   padding: 0;
   background-color: #1e293b;
-  border: 3px solid transparent; /* reserva el espacio del borde de foco/activo */
+  border: 3px solid transparent;
   border-radius: 10px;
   overflow: hidden;
   color: #fff;
@@ -452,12 +416,11 @@ button:focus,
 
 .playlist-item:hover { background-color: #273449; }
 .playlist-item:focus { border-color: #fff; outline: none; background-color: #273449; }
-.playlist-item.active { border-color: #3b82f6; background-color: #1e3a5f; } /* video actual */
+.playlist-item.active { border-color: #3b82f6; background-color: #1e3a5f; }
 .playlist-item.active:focus { border-color: #fff; }
-.playlist-item.unavailable { opacity: 0.45; } /* el video fallo al cargar */
+.playlist-item.unavailable { opacity: 0.45; }
 
-/* Miniatura 16:9 con padding-bottom + background-image (en vez de <img> +
-   aspect-ratio + object-fit, que no existen en navegadores viejos) */
+/* Miniatura 16:9 mediante padding-bottom y background-image */
 .playlist-thumb {
   position: relative;
   display: block;
@@ -468,7 +431,6 @@ button:focus,
   overflow: hidden;
 }
 
-/* La imagen (poster) se aplica como fondo cubierto de este span */
 .playlist-thumb-img {
   position: absolute;
   top: 0;
@@ -488,13 +450,13 @@ button:focus,
 .playlist-item.active .playlist-status { color: #60a5fa; }
 .playlist-item.unavailable .playlist-status { color: #f87171; }
 
-/* ---------- Responsivo: menos columnas en pantallas pequenas ---------- */
+/* ---------- Responsivo ---------- */
 @media (max-width: 900px) {
-  .playlist li { width: 33.3333%; } /* 3 columnas en tablets */
+  .playlist li { width: 33.3333%; }
 }
 
 @media (max-width: 520px) {
-  .playlist li { width: 50%; }      /* 2 columnas en moviles */
+  .playlist li { width: 50%; }
   .switcher-title { float: none; max-width: none; }
   .autoplay-toggle { float: none; margin-top: 10px; display: block; }
   .now-playing-title { font-size: 18px; }

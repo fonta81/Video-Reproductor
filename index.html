@@ -1,18 +1,9 @@
 <!DOCTYPE html>
 <!--
-  ============================================================================
-  index.html - Estructura del Reproductor-Online
-  ----------------------------------------------------------------------------
-  Notas importantes:
-  - Los iconos son SVG en linea (sin <use href> / <symbol>): los sprites no son
-    fiables en motores antiguos de Smart TV (Tizen 2.x/3.x, webOS 1-3, NetCast).
-  - Cada icono con dos estados usa el par "ico-a" (por defecto) / "ico-b"
-    (visible cuando el boton padre tiene la clase "on"), controlado por CSS.
-  - El <script> se carga al FINAL del <body>, asi que js.js puede asumir que
-    todo el DOM ya existe (no hace falta esperar a DOMContentLoaded).
-  - El elemento <video> usa preload="metadata" y playsinline para que iOS y
-    moviles no secuestren la reproduccion a pantalla completa nativa.
-  ============================================================================
+  index.html - Reproductor de video optimizado para Smart TVs legacy.
+  - SVGs en línea (compatibilidad con navegadores antiguos sin soporte de <use>).
+  - Iconos de doble estado (ico-a/ico-b) alternados con la clase "on".
+  - Script al final del body para acceso inmediato al DOM.
 -->
 <html lang="en">
 <head>
@@ -26,27 +17,22 @@
 
   <div class="player-layout">
 
-    <!--
-      Contenedor principal del reproductor.
-      - tabindex="0"  : recibe el foco para que las flechas del mando/teclado
-                        funcionen de inmediato (seek con <- / ->).
-      - Es tambien el elemento que se lleva a pantalla completa.
-    -->
+    <!-- Contenedor principal: foco para navegacion con teclado/mando y elemento de fullscreen -->
     <div class="video-container" id="videoContainer" tabindex="0">
       <video id="mainVideo" preload="metadata" playsinline webkit-playsinline></video>
 
-      <!-- Capa transparente de clic sobre el video (termina antes de los controles) -->
+      <!-- Capa de clic sobre el video -->
       <div class="video-overlay" id="videoOverlay"></div>
 
-      <!-- Boton grande central de reproduccion (se oculta al reproducir) -->
+      <!-- Boton central de reproduccion -->
       <button type="button" class="big-play-btn" id="bigPlayBtn" tabindex="-1" aria-label="Play video">
         <svg class="ico" width="40" height="40" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>
       </button>
 
-      <!-- Indicador de carga / buffering (visible mientras video no pueda reproducir) -->
+      <!-- Indicador de carga/buffering -->
       <div class="spinner hidden" id="spinner" aria-label="Loading"></div>
 
-      <!-- Capa de error: se muestra si el archivo de video falla al cargar -->
+      <!-- Mensaje de error de carga -->
       <div class="error-message hidden" id="errorMessage">
         <div class="error-cell">
           <p>Sorry, this video could not be loaded.</p>
@@ -56,52 +42,44 @@
 
       <div class="controls-container">
 
-        <!--
-          Barra de progreso personalizada (no <input type="range"> porque muchos
-          navegadores de TV la renderizan mal). Expuesta como role="slider" con
-          aria-valuenow para lectores de pantalla y navegacion con mando.
-        -->
+        <!-- Barra de progreso accesible para navegacion con mando (role="slider") -->
         <div class="progress-bar-container" id="progressContainer" tabindex="0" role="slider" aria-label="Seek">
-          <div class="buffer-bar" id="bufferBar"></div>   <!-- porcentaje buffered -->
-          <div class="progress-bar" id="progressBar"></div> <!-- porcentaje reproducido -->
+          <div class="buffer-bar" id="bufferBar"></div>   <!-- buffer descargado -->
+          <div class="progress-bar" id="progressBar"></div> <!-- progreso reproducido -->
         </div>
 
-        <!-- Fila de botones: disposicion tipo tabla (no flexbox, por compatibilidad) -->
+        <!-- Fila de controles en tabla (fallback para navegadores sin flexbox) -->
         <div class="controls-row">
           <div class="controls-left">
 
-            <!-- Video anterior (P / tecla Prev del mando). Da la vuelta al inicio de la lista -->
+            <!-- Anterior (P) -->
             <button type="button" class="control-btn" id="prevBtn" title="Previous video (P)">
               <svg class="ico" width="26" height="26" viewBox="0 0 24 24" fill="currentColor"><polygon points="19 20 9 12 19 4 19 20"/><rect x="5" y="4" width="3" height="16"/></svg>
             </button>
 
-            <!-- Play/Pause: clase "on" = reproduciendo (cambia a icono de pausa) -->
+            <!-- Play/Pause (Space / K) -->
             <button type="button" class="control-btn" id="playPauseBtn" title="Play/Pause (Space / K)">
               <svg class="ico ico-a" width="26" height="26" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>
               <svg class="ico ico-b" width="26" height="26" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>
             </button>
 
-            <!-- Siguiente video (N / tecla Next del mando). Da la vuelta al final de la lista -->
+            <!-- Siguiente (N) -->
             <button type="button" class="control-btn" id="nextBtn" title="Next video (N)">
               <svg class="ico" width="26" height="26" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 4 15 12 5 20 5 4"/><rect x="16" y="4" width="3" height="16"/></svg>
             </button>
 
-            <!-- Mute: clase "on" = silenciado (cambia a icono con X) -->
+            <!-- Silenciar (M) -->
             <button type="button" class="control-btn" id="muteBtn" title="Mute (M)">
               <svg class="ico ico-a" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>
               <svg class="ico ico-b" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><line x1="23" y1="9" x2="17" y2="15"/><line x1="17" y1="9" x2="23" y2="15"/></svg>
             </button>
 
-            <!--
-              Barra de volumen personalizada (un <div>, siempre visible para que
-              funcione con el mando). role="slider" + aria-valuenow actualizado
-              dinamicamente desde js.js.
-            -->
+            <!-- Barra de volumen (role="slider") -->
             <div class="volume-bar" id="volumeBar" tabindex="0" role="slider" aria-label="Volume" aria-valuemin="0" aria-valuemax="100" aria-valuenow="100" title="Volume">
               <div class="volume-fill" id="volumeFill"></div>
             </div>
 
-            <!-- Tiempo actual / duracion total (formateado como MM:SS) -->
+            <!-- Tiempo transcurrido / duracion total -->
             <div class="time-display">
               <span id="currentTime">00:00</span> / <span id="duration">00:00</span>
             </div>
@@ -109,18 +87,13 @@
 
           <div class="controls-right">
 
-            <!--
-              Repetir: cicla off > one > all con la tecla L o clic.
-              - clase "active" = algun modo de repeticion activado (resaltado azul)
-              - clase "on"     = modo "one" (cambia al icono de repeticion simple)
-              - aria-pressed refleja si hay repeticion activa
-            -->
+            <!-- Repetir: off > one > all (L) -->
             <button type="button" class="control-btn loop-btn" id="loopBtn" title="Repeat: off (L)" aria-pressed="false" aria-label="Toggle repeat mode">
               <svg class="ico ico-a" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m17 2 4 4-4 4"/><path d="M3 11v-1a4 4 0 0 1 4-4h14"/><path d="m7 22-4-4 4-4"/><path d="M21 13v1a4 4 0 0 1-4 4H3"/></svg>
               <svg class="ico ico-b" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m17 2 4 4-4 4"/><path d="M3 11v-1a4 4 0 0 1 4-4h14"/><path d="m7 22-4-4 4-4"/><path d="M21 13v1a4 4 0 0 1-4 4H3"/><path d="M11 10h1v4"/></svg>
             </button>
 
-            <!-- Pantalla completa (F): clase "on" = esta en fullscreen/pseudo-fullscreen -->
+            <!-- Pantalla completa (F) -->
             <button type="button" class="control-btn" id="fullscreenBtn" title="Fullscreen (F)">
               <svg class="ico ico-a" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/></svg>
               <svg class="ico ico-b" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 3v3a2 2 0 0 1-2 2H3m18 0h-3a2 2 0 0 1-2-2V3m0 18v-3a2 2 0 0 1 2-2h3M3 16h3a2 2 0 0 1 2 2v3"/></svg>
@@ -130,27 +103,27 @@
       </div>
     </div>
 
-    <!-- Selector de videos: titulo actual, toggle de autoplay y la lista de tarjetas -->
+    <!-- Selector y lista de reproduccion -->
     <div class="switcher">
       <div class="switcher-header">
         <div class="switcher-title">
           <span class="now-playing-label">Now playing</span>
           <h1 class="now-playing-title" id="videoTitle"></h1>
         </div>
-        <!-- Label asociado al checkbox: clic en el texto tambien activa el toggle -->
+        <!-- Toggle de reproduccion automatica -->
         <label class="autoplay-toggle" id="autoplayLabel">
           <input type="checkbox" id="autoplayNext" checked>
           <span>Autoplay next</span>
         </label>
       </div>
 
-      <!-- La lista se genera dinamicamente desde el arreglo VIDEOS de js.js -->
+      <!-- Lista generada dinamicamente desde js/js.js -->
       <ul class="playlist" id="playlist"></ul>
     </div>
 
   </div>
 
-  <!-- El script al final del body: el DOM ya esta listo cuando js.js se ejecuta -->
+  <!-- Script al final del body -->
   <script src="./js/js.js"></script>
 </body>
 </html>
